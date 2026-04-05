@@ -389,3 +389,144 @@ func TestSourceService_EnableDisable(t *testing.T) {
 		t.Error("expected source to be enabled")
 	}
 }
+
+func TestSourceService_ListByConnection(t *testing.T) {
+	sourceStore := mocks.NewMockSourceStore()
+	documentStore := mocks.NewMockDocumentStore()
+	syncStore := mocks.NewMockSyncStateStore()
+	searchEngine := mocks.NewMockSearchEngine()
+	svc := NewSourceService(sourceStore, documentStore, syncStore, searchEngine)
+
+	// Create sources with different connections
+	source1 := &domain.Source{
+		ID:           "source-1",
+		Name:         "Source 1",
+		ProviderType: domain.ProviderTypeGitHub,
+		ConnectionID: "conn-1",
+		Enabled:      true,
+	}
+	_ = sourceStore.Save(context.Background(), source1)
+
+	source2 := &domain.Source{
+		ID:           "source-2",
+		Name:         "Source 2",
+		ProviderType: domain.ProviderTypeGitHub,
+		ConnectionID: "conn-1",
+		Enabled:      true,
+	}
+	_ = sourceStore.Save(context.Background(), source2)
+
+	source3 := &domain.Source{
+		ID:           "source-3",
+		Name:         "Source 3",
+		ProviderType: domain.ProviderTypeGitHub,
+		ConnectionID: "conn-2",
+		Enabled:      true,
+	}
+	_ = sourceStore.Save(context.Background(), source3)
+
+	// List sources for connection 1
+	sources, err := svc.ListByConnection(context.Background(), "conn-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sources) != 2 {
+		t.Errorf("expected 2 sources for conn-1, got %d", len(sources))
+	}
+
+	// Verify correct sources are returned
+	foundSource1 := false
+	foundSource2 := false
+	for _, s := range sources {
+		if s.ID == "source-1" {
+			foundSource1 = true
+		}
+		if s.ID == "source-2" {
+			foundSource2 = true
+		}
+		if s.ConnectionID != "conn-1" {
+			t.Errorf("expected connection ID conn-1, got %s", s.ConnectionID)
+		}
+	}
+	if !foundSource1 || !foundSource2 {
+		t.Error("expected to find both source-1 and source-2")
+	}
+
+	// List sources for connection 2
+	sources, err = svc.ListByConnection(context.Background(), "conn-2")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sources) != 1 {
+		t.Errorf("expected 1 source for conn-2, got %d", len(sources))
+	}
+	if sources[0].ID != "source-3" {
+		t.Errorf("expected source-3, got %s", sources[0].ID)
+	}
+
+	// List sources for non-existent connection
+	sources, err = svc.ListByConnection(context.Background(), "conn-999")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sources) != 0 {
+		t.Errorf("expected 0 sources for conn-999, got %d", len(sources))
+	}
+}
+
+func TestSourceService_UpdateContainers(t *testing.T) {
+	sourceStore := mocks.NewMockSourceStore()
+	documentStore := mocks.NewMockDocumentStore()
+	syncStore := mocks.NewMockSyncStateStore()
+	searchEngine := mocks.NewMockSearchEngine()
+	svc := NewSourceService(sourceStore, documentStore, syncStore, searchEngine)
+
+	// Create a source
+	source := &domain.Source{
+		ID:           "source-123",
+		Name:         "Test Source",
+		ProviderType: domain.ProviderTypeGitHub,
+		Enabled:      true,
+		Containers:   []domain.Container{},
+	}
+	_ = sourceStore.Save(context.Background(), source)
+
+	// Update containers
+	newContainers := []domain.Container{
+		{ID: "repo-1", Name: "org/repo1", Type: "repository"},
+		{ID: "repo-2", Name: "org/repo2", Type: "repository"},
+	}
+	err := svc.UpdateContainers(context.Background(), "source-123", newContainers)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify containers were updated
+	result, _ := svc.Get(context.Background(), "source-123")
+	if len(result.Containers) != 2 {
+		t.Errorf("expected 2 containers, got %d", len(result.Containers))
+	}
+	if result.Containers[0].ID != "repo-1" {
+		t.Errorf("expected container ID repo-1, got %s", result.Containers[0].ID)
+	}
+	if result.Containers[1].Name != "org/repo2" {
+		t.Errorf("expected container name org/repo2, got %s", result.Containers[1].Name)
+	}
+}
+
+func TestSourceService_UpdateContainers_NotFound(t *testing.T) {
+	sourceStore := mocks.NewMockSourceStore()
+	documentStore := mocks.NewMockDocumentStore()
+	syncStore := mocks.NewMockSyncStateStore()
+	searchEngine := mocks.NewMockSearchEngine()
+	svc := NewSourceService(sourceStore, documentStore, syncStore, searchEngine)
+
+	// Try to update containers for non-existent source
+	containers := []domain.Container{
+		{ID: "repo-1", Name: "org/repo1", Type: "repository"},
+	}
+	err := svc.UpdateContainers(context.Background(), "non-existent", containers)
+	if err != domain.ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
