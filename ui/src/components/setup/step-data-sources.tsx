@@ -289,7 +289,7 @@ export function StepDataSources({
         name: sourceName,
         provider_type: selectedConnection.provider_type,
         connection_id: selectedConnection.id,
-        containers: Array.from(selectedContainers),
+        containers: containers.filter((c) => selectedContainers.has(c.id)),
       });
       setCreatedSourceName(sourceName);
       await loadConnectedSources();  // Refresh to include new source
@@ -330,7 +330,7 @@ export function StepDataSources({
   const handleBack = () => {
     if (view === "connection_picker") {
       setPendingProvider(null);
-      setExistingInstallations([]);
+      setExistingConnections([]);
       setView("selection");
     } else if (view === "select") {
       // Go back to connection picker if we have existing connections

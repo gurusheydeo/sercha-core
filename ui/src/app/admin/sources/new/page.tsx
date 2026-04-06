@@ -84,8 +84,8 @@ function AddSourceWizardContent() {
         );
         setProviders(configuredProviders);
 
-        // Handle OAuth callback return (installation_id and provider come from URL)
-        const connectionId = searchParams.get("installation_id");
+        // Handle OAuth callback return (connection_id and provider come from URL)
+        const connectionId = searchParams.get("connection_id");
         const providerFromUrl = searchParams.get("provider");
 
         if (connectionId) {
@@ -200,7 +200,7 @@ function AddSourceWizardContent() {
   const handleOAuthReturn = async (connId: string, providerType?: string, providerList?: ProviderListItem[]) => {
     try {
       const connection = await getConnection(connId);
-      setSelectedInstallation(installation);
+      setSelectedInstallation(connection);
 
       // Set pending provider from URL params
       if (providerType) {
@@ -272,8 +272,8 @@ function AddSourceWizardContent() {
       await createSource({
         name: sourceName,
         provider_type: selectedConnection.provider_type,
-        installation_id: selectedConnection.id,
-        containers: Array.from(selectedContainers),
+        connection_id: selectedConnection.id,
+        containers: containers.filter((c) => selectedContainers.has(c.id)),
       });
       setCreatedSourceName(sourceName);
       setView("success");

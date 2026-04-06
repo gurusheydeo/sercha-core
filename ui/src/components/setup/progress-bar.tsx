@@ -23,17 +23,17 @@ interface ProgressBarProps {
 
 export function ProgressBar({ currentStep, completedSteps }: ProgressBarProps) {
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between">
+    <div className="flex justify-center">
+      <div className="flex items-start">
         {SETUP_STEPS.map((step, index) => {
           const isCompleted = completedSteps.includes(step.number);
           const isCurrent = currentStep === step.number;
           const isLast = index === SETUP_STEPS.length - 1;
 
           return (
-            <div key={step.number} className="flex flex-1 items-center">
-              {/* Step Circle */}
-              <div className="flex flex-col items-center">
+            <div key={step.number} className="flex items-start">
+              {/* Step */}
+              <div className="flex w-16 flex-col items-center">
                 <div
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors",
@@ -73,7 +73,7 @@ export function ProgressBar({ currentStep, completedSteps }: ProgressBarProps) {
               {!isLast && (
                 <div
                   className={cn(
-                    "mx-2 h-0.5 flex-1",
+                    "mt-4 h-0.5 w-12",
                     isCompleted ? "bg-sercha-indigo" : "bg-sercha-silverline"
                   )}
                 />

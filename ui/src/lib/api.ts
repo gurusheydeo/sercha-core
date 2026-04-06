@@ -105,8 +105,6 @@ export type AIProvider = "openai" | "anthropic" | "ollama" | "cohere" | "voyage"
 export interface AIProviderConfig {
   provider: AIProvider;
   model: string;
-  api_key?: string;
-  base_url?: string;
 }
 
 export interface AISettingsRequest {
@@ -180,17 +178,6 @@ export interface ProviderListItem {
   enabled: boolean;
 }
 
-export interface ProviderConfigRequest {
-  client_id: string;
-  client_secret: string;
-}
-
-export interface ProviderConfigResponse {
-  type: string;
-  configured: boolean;
-  enabled: boolean;
-}
-
 export interface CapabilitiesResponse {
   oauth_providers: string[];
   ai_providers: {
@@ -246,7 +233,7 @@ export interface CreateSourceRequest {
   provider_type: string;
   config?: Record<string, unknown>;
   connection_id: string;
-  containers: string[];
+  containers: Container[];
 }
 
 export interface Source {
@@ -257,6 +244,10 @@ export interface Source {
   document_count: number;
   last_synced?: string;
   status: "healthy" | "syncing" | "error";
+  connection_id?: string;
+  containers?: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Matches backend domain.SourceSummary
@@ -287,6 +278,7 @@ export interface SourceSummary {
   document_count: number;
   last_synced?: string;
   status: "healthy" | "syncing" | "error";
+  connection_id?: string;
 }
 
 export interface SyncState {
@@ -746,18 +738,6 @@ export async function testAIConnection(): Promise<{ status: string }> {
   });
 }
 
-export async function deleteEmbeddingConfig(): Promise<{ status: string }> {
-  return apiFetch<{ status: string }>("/api/v1/settings/ai/embedding", {
-    method: "DELETE",
-  });
-}
-
-export async function deleteLLMConfig(): Promise<{ status: string }> {
-  return apiFetch<{ status: string }>("/api/v1/settings/ai/llm", {
-    method: "DELETE",
-  });
-}
-
 export async function getAIProviders(): Promise<AIProvidersResponse> {
   return apiFetch<AIProvidersResponse>("/api/v1/settings/ai/providers");
 }
@@ -767,26 +747,6 @@ export async function getAIProviders(): Promise<AIProvidersResponse> {
 export async function listProviders(): Promise<ProviderListItem[]> {
   return apiFetch<ProviderListItem[]>("/api/v1/providers");
 }
-
-export async function getProviderConfig(type: string): Promise<ProviderConfigResponse> {
-  return apiFetch<ProviderConfigResponse>(`/api/v1/providers/${type}/config`);
-}
-
-// Deprecated: OAuth credentials now managed via environment variables
-// export async function saveProviderConfig(
-//   type: string,
-//   data: ProviderConfigRequest
-// ): Promise<ProviderConfigResponse> {
-//   return apiFetch<ProviderConfigResponse>(`/api/v1/providers/${type}/config`, {
-//     method: "POST",
-//     body: JSON.stringify(data),
-//   });
-// }
-
-// Deprecated: OAuth credentials now managed via environment variables
-// export async function deleteProviderConfig(type: string): Promise<void> {
-//   await apiFetch(`/api/v1/providers/${type}/config`, { method: "DELETE" });
-// }
 
 export async function getCapabilities(): Promise<CapabilitiesResponse> {
   return apiFetch<CapabilitiesResponse>("/api/v1/capabilities");
@@ -807,20 +767,6 @@ export async function startOAuth(
       return_context: returnContext,
     }),
   });
-}
-
-export async function handleOAuthCallback(
-  code: string,
-  state: string,
-  provider: string
-): Promise<{ connection: ConnectionSummary; message: string }> {
-  return apiFetch<{ connection: ConnectionSummary; message: string }>(
-    `/api/v1/oauth/${provider}/exchange`,
-    {
-      method: "POST",
-      body: JSON.stringify({ code, state }),
-    }
-  );
 }
 
 // ========== Connections API ==========
@@ -854,6 +800,7 @@ export async function listSources(): Promise<SourceSummary[]> {
     document_count: item.document_count,
     last_synced: item.last_sync_at,
     status: mapSyncStatus(item.sync_status),
+    connection_id: item.source.connection_id,
   }));
 }
 

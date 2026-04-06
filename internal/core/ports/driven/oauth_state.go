@@ -22,6 +22,10 @@ type OAuthState struct {
 	// RedirectURI is the callback URL where the provider will redirect.
 	RedirectURI string
 
+	// ReturnContext indicates where to redirect after OAuth completes.
+	// Values: "setup", "admin-sources", or empty for default behavior.
+	ReturnContext string
+
 	// CreatedAt is when the state was created.
 	CreatedAt time.Time
 

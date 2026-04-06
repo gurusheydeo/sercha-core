@@ -94,12 +94,13 @@ func (s *oauthService) Authorize(ctx context.Context, req driving.AuthorizeReque
 	// Store state for validation during callback
 	expiresAt := time.Now().Add(10 * time.Minute)
 	oauthState := &driven.OAuthState{
-		State:        state,
-		ProviderType: string(req.ProviderType),
-		CodeVerifier: codeVerifier,
-		RedirectURI:  redirectURI,
-		CreatedAt:    time.Now(),
-		ExpiresAt:    expiresAt,
+		State:         state,
+		ProviderType:  string(req.ProviderType),
+		CodeVerifier:  codeVerifier,
+		RedirectURI:   redirectURI,
+		ReturnContext: req.ReturnContext,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     expiresAt,
 	}
 
 	if err := s.oauthStateStore.Save(ctx, oauthState); err != nil {
@@ -262,8 +263,9 @@ func (s *oauthService) Callback(ctx context.Context, req driving.CallbackRequest
 	}
 
 	return &driving.CallbackResponse{
-		Installation: installation.ToSummary(),
-		Message:      fmt.Sprintf("Successfully connected to %s as %s", providerDisplayName(providerType), accountDisplay),
+		Installation:  installation.ToSummary(),
+		Message:       fmt.Sprintf("Successfully connected to %s as %s", providerDisplayName(providerType), accountDisplay),
+		ReturnContext: oauthState.ReturnContext,
 	}, nil
 }
 

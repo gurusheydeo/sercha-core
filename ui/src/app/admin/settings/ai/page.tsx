@@ -17,8 +17,6 @@ import {
   testAIConnection,
   getAIProviders,
   getCapabilities,
-  deleteEmbeddingConfig,
-  deleteLLMConfig,
   type AISettingsResponse,
   type AIProviderConfig,
   type AIProvidersResponse,
@@ -364,11 +362,13 @@ export default function AISettingsPage() {
   };
 
   const handleRemoveEmbedding = async () => {
-    await deleteEmbeddingConfig();
+    // Clear embedding config by setting empty provider
+    await updateAISettings({ embedding: { provider: "" as never, model: "" } });
   };
 
   const handleRemoveLLM = async () => {
-    await deleteLLMConfig();
+    // Clear LLM config by setting empty provider
+    await updateAISettings({ llm: { provider: "" as never, model: "" } });
   };
 
   if (loading) {

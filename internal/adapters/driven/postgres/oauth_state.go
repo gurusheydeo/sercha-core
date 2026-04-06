@@ -48,8 +48,8 @@ func (s *OAuthStateStore) Save(ctx context.Context, state *driven.OAuthState) er
 	}
 
 	query := `
-		INSERT INTO oauth_states (state, provider_type, code_verifier, redirect_uri, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO oauth_states (state, provider_type, code_verifier, redirect_uri, return_context, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	_, err := s.db.ExecContext(ctx, query,
@@ -57,6 +57,7 @@ func (s *OAuthStateStore) Save(ctx context.Context, state *driven.OAuthState) er
 		state.ProviderType,
 		state.CodeVerifier,
 		state.RedirectURI,
+		state.ReturnContext,
 		state.CreatedAt,
 		state.ExpiresAt,
 	)
@@ -73,18 +74,23 @@ func (s *OAuthStateStore) GetAndDelete(ctx context.Context, state string) (*driv
 	query := `
 		DELETE FROM oauth_states
 		WHERE state = $1 AND expires_at > NOW()
-		RETURNING state, provider_type, code_verifier, redirect_uri, created_at, expires_at
+		RETURNING state, provider_type, code_verifier, redirect_uri, return_context, created_at, expires_at
 	`
 
 	var oauthState driven.OAuthState
+	var returnContext sql.NullString
 	err := s.db.QueryRowContext(ctx, query, state).Scan(
 		&oauthState.State,
 		&oauthState.ProviderType,
 		&oauthState.CodeVerifier,
 		&oauthState.RedirectURI,
+		&returnContext,
 		&oauthState.CreatedAt,
 		&oauthState.ExpiresAt,
 	)
+	if returnContext.Valid {
+		oauthState.ReturnContext = returnContext.String
+	}
 	if err == sql.ErrNoRows {
 		return nil, nil // State not found or expired
 	}
