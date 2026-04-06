@@ -29,6 +29,10 @@ type AuthorizeRequest struct {
 	// InstallationName is an optional name for the installation.
 	// If not provided, defaults to "{Provider} ({AccountID})"
 	InstallationName string `json:"installation_name,omitempty" example:"My GitHub"`
+
+	// ReturnContext indicates where to redirect after OAuth completes.
+	// Values: "setup" (FTUE), "admin-sources" (add source wizard), or empty for default.
+	ReturnContext string `json:"return_context,omitempty" example:"admin-sources"`
 }
 
 // AuthorizeResponse contains the authorization URL and state.
@@ -69,6 +73,10 @@ type CallbackResponse struct {
 
 	// Message provides a human-readable status message.
 	Message string `json:"message" example:"Successfully connected to GitHub as octocat"`
+
+	// ReturnContext indicates where to redirect after OAuth completes.
+	// Passed through from the initial authorize request.
+	ReturnContext string `json:"return_context,omitempty" example:"admin-sources"`
 }
 
 // OAuthError represents an OAuth-specific error.

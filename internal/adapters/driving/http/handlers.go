@@ -3,7 +3,10 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 
 	"github.com/custodia-labs/sercha-core/internal/core/domain"
@@ -1111,20 +1114,33 @@ func (s *Server) handleOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 
 // handleOAuthCallback godoc
 // @Summary      OAuth callback
-// @Description  Handle the OAuth callback from an external provider. This endpoint is called by the provider after the user authorizes the application. It exchanges the authorization code for tokens and creates a connector installation.
+// @Description  Handle the OAuth callback from an external provider. This endpoint is called by the provider after the user authorizes the application. It exchanges the authorization code for tokens and creates a connector installation, then redirects to the UI.
 // @Tags         OAuth
-// @Produce      json
 // @Param        code               query     string  false  "Authorization code from provider"
 // @Param        state              query     string  true   "State parameter for CSRF protection"
 // @Param        error              query     string  false  "Error code if authorization failed"
 // @Param        error_description  query     string  false  "Error description if authorization failed"
-// @Success      200  {object}  driving.CallbackResponse
-// @Failure      400  {object}  ErrorResponse  "Invalid state or missing code"
-// @Failure      500  {object}  ErrorResponse  "Token exchange failed"
+// @Success      302  "Redirect to UI oauth/complete page"
+// @Failure      302  "Redirect to UI oauth/complete page with error"
 // @Router       /oauth/callback [get]
 func (s *Server) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	uiBaseURL := os.Getenv("UI_BASE_URL")
+	if uiBaseURL == "" {
+		uiBaseURL = "http://localhost:3000" // Default for development
+	}
+
+	// Helper to redirect with error
+	redirectWithError := func(errCode, errDesc string) {
+		params := url.Values{}
+		params.Set("error", errCode)
+		if errDesc != "" {
+			params.Set("error_description", errDesc)
+		}
+		http.Redirect(w, r, fmt.Sprintf("%s/oauth/complete?%s", uiBaseURL, params.Encode()), http.StatusFound)
+	}
+
 	if s.oauthService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth service not configured")
+		redirectWithError("service_unavailable", "oauth service not configured")
 		return
 	}
 
@@ -1136,7 +1152,7 @@ func (s *Server) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.State == "" {
-		writeError(w, http.StatusBadRequest, "missing state parameter")
+		redirectWithError("invalid_request", "missing state parameter")
 		return
 	}
 
@@ -1144,29 +1160,31 @@ func (s *Server) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Check for OAuth-specific errors
 		if oauthErr, ok := err.(*driving.OAuthError); ok {
-			switch oauthErr.Code {
-			case "invalid_state":
-				writeError(w, http.StatusBadRequest, oauthErr.Description)
-			case "access_denied":
-				writeError(w, http.StatusForbidden, "authorization denied by user")
-			default:
-				writeError(w, http.StatusBadRequest, oauthErr.Error())
-			}
+			redirectWithError(oauthErr.Code, oauthErr.Description)
 			return
 		}
 
 		switch err {
 		case driving.ErrOAuthInvalidState:
-			writeError(w, http.StatusBadRequest, "invalid or expired state")
+			redirectWithError("invalid_state", "invalid or expired state")
 		case driving.ErrOAuthProviderNotFound:
-			writeError(w, http.StatusNotFound, "provider not configured")
+			redirectWithError("provider_not_found", "provider not configured")
 		default:
-			writeError(w, http.StatusInternalServerError, "oauth callback failed: "+err.Error())
+			redirectWithError("callback_failed", err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	// Success - redirect to UI with connection details
+	params := url.Values{}
+	params.Set("connection_id", resp.Installation.ID)
+	params.Set("provider", string(resp.Installation.ProviderType))
+	params.Set("name", resp.Installation.Name)
+	if resp.ReturnContext != "" {
+		params.Set("return_context", resp.ReturnContext)
+	}
+	redirectURL := fmt.Sprintf("%s/oauth/complete?%s", uiBaseURL, params.Encode())
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // Installation endpoints
