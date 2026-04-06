@@ -184,6 +184,85 @@ func TestCORSMiddleware_DisallowedOrigin(t *testing.T) {
 	}
 }
 
+func TestCORSMiddleware_Wildcard(t *testing.T) {
+	middleware := NewCORSMiddleware([]string{"*"})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Test that wildcard allows any origin
+	origins := []string{
+		"https://example.com",
+		"https://another-domain.com",
+		"http://localhost:3000",
+		"https://evil.com",
+	}
+
+	for _, origin := range origins {
+		t.Run(origin, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/test", nil)
+			req.Header.Set("Origin", origin)
+			rr := httptest.NewRecorder()
+
+			middleware.Handler(handler).ServeHTTP(rr, req)
+
+			if rr.Header().Get("Access-Control-Allow-Origin") != origin {
+				t.Errorf("expected CORS origin header to be %s, got %s",
+					origin, rr.Header().Get("Access-Control-Allow-Origin"))
+			}
+		})
+	}
+}
+
+func TestCORSMiddleware_EmptyOrigins(t *testing.T) {
+	middleware := NewCORSMiddleware([]string{})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Origin", "https://example.com")
+	rr := httptest.NewRecorder()
+
+	middleware.Handler(handler).ServeHTTP(rr, req)
+
+	if rr.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Error("expected no CORS header when no origins configured")
+	}
+}
+
+func TestCORSMiddleware_PreflightWithWildcard(t *testing.T) {
+	middleware := NewCORSMiddleware([]string{"*"})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest("OPTIONS", "/test", nil)
+	req.Header.Set("Origin", "https://any-origin.com")
+	rr := httptest.NewRecorder()
+
+	middleware.Handler(handler).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Errorf("expected status 204 for preflight, got %d", rr.Code)
+	}
+
+	if rr.Header().Get("Access-Control-Allow-Origin") != "https://any-origin.com" {
+		t.Error("expected CORS origin header to be set for preflight with wildcard")
+	}
+
+	if rr.Header().Get("Access-Control-Allow-Methods") == "" {
+		t.Error("expected Access-Control-Allow-Methods header to be set")
+	}
+
+	if rr.Header().Get("Access-Control-Allow-Headers") == "" {
+		t.Error("expected Access-Control-Allow-Headers header to be set")
+	}
+}
+
 func TestResponseWriter(t *testing.T) {
 	rr := httptest.NewRecorder()
 	rw := &responseWriter{ResponseWriter: rr, statusCode: http.StatusOK}

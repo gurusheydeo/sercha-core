@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -539,10 +540,14 @@ func runAPI(
 	db http.Pinger,
 	redisClient http.Pinger, // can be nil
 ) {
+	// Parse CORS origins from environment variable
+	corsOrigins := parseCORSOrigins(getEnv("CORS_ORIGINS", "*"))
+
 	cfg := http.Config{
-		Host:    "0.0.0.0",
-		Port:    port,
-		Version: version,
+		Host:        "0.0.0.0",
+		Port:        port,
+		Version:     version,
+		CORSOrigins: corsOrigins,
 	}
 
 	server := http.NewServer(
@@ -636,4 +641,20 @@ func getEnvBool(key string, defaultValue bool) bool {
 		return value == "true" || value == "1" || value == "yes"
 	}
 	return defaultValue
+}
+
+func parseCORSOrigins(value string) []string {
+	if value == "" {
+		return nil
+	}
+	// Split by comma and trim whitespace
+	parts := strings.Split(value, ",")
+	origins := []string{}
+	for _, part := range parts {
+		origin := strings.TrimSpace(part)
+		if origin != "" {
+			origins = append(origins, origin)
+		}
+	}
+	return origins
 }

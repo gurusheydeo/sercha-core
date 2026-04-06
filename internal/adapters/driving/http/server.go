@@ -61,9 +61,10 @@ type Server struct {
 
 // Config holds server configuration
 type Config struct {
-	Host    string
-	Port    int
-	Version string
+	Host        string
+	Port        int
+	Version     string
+	CORSOrigins []string
 }
 
 // DefaultConfig returns sensible defaults
@@ -120,9 +121,16 @@ func NewServer(
 		redisClient:         redisClient,
 	}
 
+	// Build handler chain: CORS -> strip trailing slash -> router
+	handler := stripTrailingSlash(s.router)
+	if len(cfg.CORSOrigins) > 0 {
+		corsMiddleware := NewCORSMiddleware(cfg.CORSOrigins)
+		handler = corsMiddleware.Handler(handler)
+	}
+
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Handler:      stripTrailingSlash(s.router),
+		Handler:      handler,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
