@@ -437,7 +437,7 @@ func TestAdminService_GetJob(t *testing.T) {
 					ID:   "source-789",
 					Name: "GitHub Repo",
 				}
-				ss.Save(context.Background(), source)
+				_ = ss.Save(context.Background(), source)
 			},
 			wantErr:        nil,
 			wantSourceName: "GitHub Repo",
@@ -962,7 +962,7 @@ func TestAdminService_TriggerReindex(t *testing.T) {
 					{ID: "source-3", Name: "Source 3", Enabled: false}, // Should be excluded
 				}
 				for _, source := range sources {
-					ss.Save(context.Background(), source)
+					_ = ss.Save(context.Background(), source)
 				}
 			},
 			wantErr:       false,
@@ -982,7 +982,7 @@ func TestAdminService_TriggerReindex(t *testing.T) {
 					{ID: "source-3", Name: "Source 3", Enabled: true},
 				}
 				for _, source := range sources {
-					ss.Save(context.Background(), source)
+					_ = ss.Save(context.Background(), source)
 				}
 			},
 			wantErr:       false,
@@ -1007,7 +1007,7 @@ func TestAdminService_TriggerReindex(t *testing.T) {
 			},
 			setupMocks: func(ss *mocks.MockSourceStore, tq *mocks.MockTaskQueue) {
 				source := &domain.Source{ID: "source-1", Name: "Source 1", Enabled: false}
-				ss.Save(context.Background(), source)
+				_ = ss.Save(context.Background(), source)
 			},
 			wantErr: true,
 		},
@@ -1017,7 +1017,7 @@ func TestAdminService_TriggerReindex(t *testing.T) {
 			req:    driving.TriggerReindexRequest{},
 			setupMocks: func(ss *mocks.MockSourceStore, tq *mocks.MockTaskQueue) {
 				source := &domain.Source{ID: "source-1", Name: "Source 1", Enabled: false}
-				ss.Save(context.Background(), source)
+				_ = ss.Save(context.Background(), source)
 			},
 			wantErr: true,
 		},
@@ -1029,7 +1029,7 @@ func TestAdminService_TriggerReindex(t *testing.T) {
 			},
 			setupMocks: func(ss *mocks.MockSourceStore, tq *mocks.MockTaskQueue) {
 				source := &domain.Source{ID: "source-1", Name: "Source 1", Enabled: true}
-				ss.Save(context.Background(), source)
+				_ = ss.Save(context.Background(), source)
 				tq.SetEnqueueError(errors.New("queue error"))
 			},
 			wantErr: true,
@@ -1043,7 +1043,7 @@ func TestAdminService_TriggerReindex(t *testing.T) {
 			},
 			setupMocks: func(ss *mocks.MockSourceStore, tq *mocks.MockTaskQueue) {
 				source := &domain.Source{ID: "source-1", Name: "Source 1", Enabled: true}
-				ss.Save(context.Background(), source)
+				_ = ss.Save(context.Background(), source)
 			},
 			wantErr:       false,
 			wantTaskCount: 1,

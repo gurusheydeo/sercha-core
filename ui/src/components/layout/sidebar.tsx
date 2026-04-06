@@ -29,8 +29,8 @@ const navigation: NavItem[] = [
   { name: "Sources", href: "/admin/sources", icon: Database },
   { name: "Vespa", href: "/admin/vespa", icon: Server },
   { name: "AI", href: "/admin/settings/ai", icon: Sparkles },
-  { name: "Other", href: "/admin/settings", icon: Settings },
   { name: "Team", href: "/admin/team", icon: Users },
+  { name: "Other", href: "/admin/settings", icon: Settings },
 ];
 
 export function Sidebar() {
