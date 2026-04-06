@@ -23,14 +23,18 @@ go test ./tests/integration/... -v
 | postgres | 5432 | PostgreSQL database |
 | vespa | 19071/8080 | Vespa config/query servers |
 
-## With UI
+## UI Development
+
+Run the UI separately with hot reload:
 
 ```bash
-# Start with web UI
-docker compose --profile ui up -d --build
-
-# Access UI at http://localhost:3000
+# From repo root
+cd ui
+npm install
+npm run dev   # http://localhost:3001
 ```
+
+The Next.js dev server proxies `/api/*` to `localhost:8080` automatically.
 
 ## Default Credentials
 

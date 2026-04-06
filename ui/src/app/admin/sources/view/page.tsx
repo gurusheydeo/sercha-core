@@ -19,9 +19,13 @@ import {
   ChevronRight,
   Database,
   CheckCircle,
+  User,
+  Key,
+  Calendar,
 } from "lucide-react";
 import { AdminLayout } from "@/components/layout";
 import {
+  getSource,
   getSourceSyncState,
   triggerSync,
   deleteSource,
@@ -29,12 +33,13 @@ import {
   disableSource,
   getSourceDocuments,
   getDocumentURL,
-  listSources,
-  SourceSummary,
+  getConnection,
+  Source,
+  ConnectionSummary,
   SyncState,
   Document,
 } from "@/lib/api";
-import { getProviderIcon } from "@/lib/providers";
+import { getProviderIcon, getProviderName } from "@/lib/providers";
 
 function formatRelativeTime(dateStr?: string): string {
   if (!dateStr) return "Never";
@@ -52,23 +57,16 @@ function formatRelativeTime(dateStr?: string): string {
   return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
 }
 
-function formatProviderName(providerType: string): string {
-  const names: Record<string, string> = {
-    github: "GitHub",
-    gitlab: "GitLab",
-    notion: "Notion",
-    google_drive: "Google Drive",
-    dropbox: "Dropbox",
-    confluence: "Confluence",
-    jira: "Jira",
-    asana: "Asana",
-    linear: "Linear",
-    figma: "Figma",
-    miro: "Miro",
-    onedrive: "OneDrive",
-    sharepoint: "SharePoint",
-  };
-  return names[providerType] || providerType;
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return "Unknown";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 const PAGE_SIZE = 20;
@@ -79,7 +77,8 @@ function SourceDetailContent() {
   const sourceId = searchParams.get("id");
 
   // State
-  const [source, setSource] = useState<SourceSummary | null>(null);
+  const [source, setSource] = useState<Source | null>(null);
+  const [connection, setConnection] = useState<ConnectionSummary | null>(null);
   const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [totalDocs, setTotalDocs] = useState(0);
@@ -92,17 +91,22 @@ function SourceDetailContent() {
   const [openingDoc, setOpeningDoc] = useState<string | null>(null);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
-  // Fetch source data
+  // Fetch source and connection data
   const fetchSource = useCallback(async () => {
     if (!sourceId) return;
     try {
-      const sources = await listSources();
-      const found = sources.find((s) => s.id === sourceId);
-      if (!found) {
-        setError("Source not found");
-        return;
+      const sourceData = await getSource(sourceId);
+      setSource(sourceData);
+
+      // Fetch connection details if available
+      if (sourceData.connection_id) {
+        try {
+          const connectionData = await getConnection(sourceData.connection_id);
+          setConnection(connectionData);
+        } catch (err) {
+          console.error("Failed to fetch connection:", err);
+        }
       }
-      setSource(found);
     } catch (err) {
       console.error("Failed to fetch source:", err);
       setError("Failed to load source");
@@ -263,7 +267,9 @@ function SourceDetailContent() {
     );
   }
 
-  const isSyncing = source.status === "syncing" || syncState?.status === "syncing" || syncing;
+  // Derive status from syncState since getSource() doesn't include it
+  const sourceStatus = syncState?.status === "error" ? "error" : syncState?.status === "syncing" ? "syncing" : "healthy";
+  const isSyncing = syncState?.status === "syncing" || syncing;
   const totalPages = Math.ceil(totalDocs / PAGE_SIZE);
   const startItem = page * PAGE_SIZE + 1;
   const endItem = Math.min((page + 1) * PAGE_SIZE, totalDocs);
@@ -271,7 +277,7 @@ function SourceDetailContent() {
   return (
     <AdminLayout
       title={source.name}
-      description={`Manage ${formatProviderName(source.provider_type)} source`}
+      description={`Manage ${getProviderName(source.provider_type)} source`}
     >
       <div className="space-y-6">
         {/* Back Link */}
@@ -306,7 +312,7 @@ function SourceDetailContent() {
                     Syncing
                   </span>
                 )}
-                {source.status === "error" && (
+                {sourceStatus === "error" && (
                   <span className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">
                     <AlertCircle size={12} />
                     Error
@@ -314,7 +320,7 @@ function SourceDetailContent() {
                 )}
               </div>
               <p className="mt-1 text-sm text-sercha-fog-grey">
-                {formatProviderName(source.provider_type)} •{" "}
+                {getProviderName(source.provider_type)} •{" "}
                 {source.enabled ? (
                   <span className="text-emerald-600">Enabled</span>
                 ) : (
@@ -376,7 +382,7 @@ function SourceDetailContent() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-sercha-ink-slate">
-                  {source.document_count.toLocaleString()}
+                  {totalDocs.toLocaleString()}
                 </p>
                 <p className="text-sm text-sercha-fog-grey">Documents</p>
               </div>
@@ -389,7 +395,7 @@ function SourceDetailContent() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-sercha-ink-slate">
-                  {formatRelativeTime(source.last_synced)}
+                  {formatRelativeTime(syncState?.last_sync_time)}
                 </p>
                 <p className="text-sm text-sercha-fog-grey">Last Synced</p>
               </div>
@@ -398,9 +404,9 @@ function SourceDetailContent() {
           <div className="rounded-xl border border-sercha-silverline bg-white p-4">
             <div className="flex items-center gap-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                source.status === "error" ? "bg-red-100" : "bg-emerald-100"
+                sourceStatus === "error" ? "bg-red-100" : "bg-emerald-100"
               }`}>
-                {source.status === "error" ? (
+                {sourceStatus === "error" ? (
                   <AlertCircle size={20} className="text-red-600" />
                 ) : (
                   <CheckCircle size={20} className="text-emerald-600" />
@@ -408,15 +414,67 @@ function SourceDetailContent() {
               </div>
               <div>
                 <p className={`text-2xl font-bold ${
-                  source.status === "error" ? "text-red-600" : "text-emerald-600"
+                  sourceStatus === "error" ? "text-red-600" : "text-emerald-600"
                 }`}>
-                  {source.status === "error" ? "Error" : "Healthy"}
+                  {sourceStatus === "error" ? "Error" : "Healthy"}
                 </p>
                 <p className="text-sm text-sercha-fog-grey">Status</p>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Connection Info */}
+        {connection && (
+          <div className="rounded-2xl border border-sercha-silverline bg-white p-6">
+            <h3 className="mb-4 font-semibold text-sercha-ink-slate">Connection Details</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sercha-snow">
+                  <User size={16} className="text-sercha-fog-grey" />
+                </div>
+                <div>
+                  <p className="text-xs text-sercha-fog-grey">Account</p>
+                  <p className="text-sm font-medium text-sercha-ink-slate">{connection.account_id}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sercha-snow">
+                  <Key size={16} className="text-sercha-fog-grey" />
+                </div>
+                <div>
+                  <p className="text-xs text-sercha-fog-grey">Auth Method</p>
+                  <p className="text-sm font-medium text-sercha-ink-slate capitalize">{connection.auth_method}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sercha-snow">
+                  <Calendar size={16} className="text-sercha-fog-grey" />
+                </div>
+                <div>
+                  <p className="text-xs text-sercha-fog-grey">Connected</p>
+                  <p className="text-sm font-medium text-sercha-ink-slate">{formatDate(connection.created_at)}</p>
+                </div>
+              </div>
+              {connection.oauth_expiry && (
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sercha-snow">
+                    <Clock size={16} className="text-sercha-fog-grey" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-sercha-fog-grey">Token Expires</p>
+                    <p className="text-sm font-medium text-sercha-ink-slate">{formatDate(connection.oauth_expiry)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 pt-4 border-t border-sercha-mist">
+              <p className="text-xs text-sercha-fog-grey">
+                Connection ID: <code className="rounded bg-sercha-snow px-1.5 py-0.5 font-mono text-xs">{connection.id}</code>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Sync Error Alert */}
         {syncState?.status === "error" && syncState.error_message && (

@@ -244,6 +244,10 @@ export interface Source {
   document_count: number;
   last_synced?: string;
   status: "healthy" | "syncing" | "error";
+  connection_id?: string;
+  containers?: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Matches backend domain.SourceSummary
@@ -274,6 +278,7 @@ export interface SourceSummary {
   document_count: number;
   last_synced?: string;
   status: "healthy" | "syncing" | "error";
+  connection_id?: string;
 }
 
 export interface SyncState {
@@ -795,6 +800,7 @@ export async function listSources(): Promise<SourceSummary[]> {
     document_count: item.document_count,
     last_synced: item.last_sync_at,
     status: mapSyncStatus(item.sync_status),
+    connection_id: item.source.connection_id,
   }));
 }
 

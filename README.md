@@ -121,16 +121,12 @@ The fastest way to get started is using the quickstart example:
 git clone https://github.com/custodia-labs/sercha-core.git
 cd sercha-core/examples/quickstart
 
-# Start with Admin UI (recommended)
-docker compose --profile ui up -d
-
-# Or API only
+# Start services
 docker compose up -d
 ```
 
 Wait 1-2 minutes for Vespa to initialize, then:
 
-- **Admin UI**: http://localhost:3000
 - **API**: http://localhost:8080
 - **API Docs**: http://localhost:8080/swagger/index.html
 
@@ -175,8 +171,6 @@ Sercha Core uses a hexagonal (ports and adapters) architecture:
 | Mode | Use Case | Components |
 |------|----------|------------|
 | **All-in-One** | Development, small teams | Single binary: API + Worker + Scheduler |
-| **Multinode** | Medium teams | Separate API and Worker containers |
-| **Multinode-HA** | Production, large teams | Multiple API/Worker replicas + nginx load balancer |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -187,23 +181,17 @@ Pre-configured Docker Compose examples are available in the [`examples/`](exampl
 
 | Example | Description | Use Case |
 |---------|-------------|----------|
-| [`quickstart/`](examples/quickstart/) | Single container + dependencies | Getting started, development |
-| [`multinode/`](examples/multinode/) | Separate API and worker | Small production deployments |
-| [`multinode-ha/`](examples/multinode-ha/) | HA with nginx load balancer | Production with high availability |
-| [`dev/`](examples/dev/) | Full dev environment with hot reload | Active development |
-
-### Example: Multinode Deployment
+| [`quickstart/`](examples/quickstart/) | Pre-built images from ghcr.io | Getting started, production |
+| [`dev/`](examples/dev/) | Builds from local Dockerfile | Active development |
 
 ```bash
-cd examples/multinode
+# Quickstart (pre-built images)
+cd examples/quickstart
 docker compose up -d
-```
 
-### Example: HA Deployment with Load Balancing
-
-```bash
-cd examples/multinode-ha
-docker compose up -d --scale api=3 --scale worker=2
+# Development (builds from source)
+cd examples/dev
+docker compose up -d
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -264,33 +252,43 @@ curl -X POST http://localhost:8080/api/v1/search \
 ### Prerequisites
 
 - Go 1.24+
+- Node.js 20+ (for UI)
 - Docker and Docker Compose
-- PostgreSQL 16+
-- Vespa 8+
 
 ### Local Development
 
 ```bash
-# Start dependencies
-docker compose -f examples/dev/docker-compose.yml up -d postgres vespa
+# Terminal 1: Start backend (builds from source)
+cd examples/dev
+docker compose up -d
 
-# Run the server
-go run ./cmd/sercha-core all
-
-# Or with hot reload (requires air)
-air
+# Terminal 2: Start UI with hot reload
+cd ui
+npm install
+npm run dev   # http://localhost:3001
 ```
+
+The Next.js dev server automatically proxies `/api/*` requests to the backend.
 
 ### Running Tests
 
 ```bash
+# Unit tests
 go test ./...
+
+# Integration tests
+cd tests/integration
+make test
 ```
 
 ### Building
 
 ```bash
+# Backend
 go build -o sercha-core ./cmd/sercha-core
+
+# UI (static export)
+cd ui && npm run build
 ```
 
 For detailed development instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).

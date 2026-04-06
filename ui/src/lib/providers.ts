@@ -1,4 +1,21 @@
-// Centralized provider configuration for icons and help URLs
+// Centralized provider configuration for icons, names, and help URLs
+
+export const PROVIDER_NAMES: Record<string, string> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  notion: "Notion",
+  google_drive: "Google Drive",
+  dropbox: "Dropbox",
+  confluence: "Confluence",
+  jira: "Jira",
+  trello: "Trello",
+  asana: "Asana",
+  linear: "Linear",
+  figma: "Figma",
+  miro: "Miro",
+  onedrive: "OneDrive",
+  sharepoint: "SharePoint",
+};
 
 export const PROVIDER_ICONS: Record<string, string> = {
   github: "/logos/github/github_icon.png",
@@ -34,4 +51,8 @@ export function getProviderIcon(providerType: string): string {
 
 export function getProviderHelpUrl(providerType: string): string | undefined {
   return PROVIDER_HELP_URLS[providerType];
+}
+
+export function getProviderName(providerType: string): string {
+  return PROVIDER_NAMES[providerType] || providerType;
 }

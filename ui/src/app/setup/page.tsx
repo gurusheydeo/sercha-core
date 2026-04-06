@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, CheckCircle } from "lucide-react";
 import {
   ProgressBar,
   StepWelcome,
@@ -12,6 +13,7 @@ import {
   StepDataSources,
   StepComplete,
 } from "@/components/setup";
+import { getSetupStatus } from "@/lib/api";
 
 function SetupWizardContent() {
   const router = useRouter();
@@ -22,6 +24,27 @@ function SetupWizardContent() {
 
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [setupAlreadyComplete, setSetupAlreadyComplete] = useState(false);
+
+  // Check if setup is already complete
+  useEffect(() => {
+    const checkSetupStatus = async () => {
+      try {
+        const status = await getSetupStatus();
+        if (status.setup_complete) {
+          setSetupAlreadyComplete(true);
+        }
+      } catch (err) {
+        // If we get an error (like 403), setup is likely already complete
+        console.error("Failed to check setup status:", err);
+        setSetupAlreadyComplete(true);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+    checkSetupStatus();
+  }, []);
 
   // Sync URL with step
   useEffect(() => {
@@ -80,6 +103,48 @@ function SetupWizardContent() {
         return <StepWelcome onComplete={() => completeStep(1)} />;
     }
   };
+
+  // Show loading while checking setup status
+  if (checkingStatus) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-sercha-indigo" />
+      </div>
+    );
+  }
+
+  // Show message if setup is already complete
+  if (setupAlreadyComplete) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-4">
+        <Image
+          src="/logo-wordmark.png"
+          alt="Sercha"
+          width={140}
+          height={36}
+          className="mb-8 h-9 w-auto"
+          priority
+        />
+        <div className="flex flex-col items-center rounded-2xl border border-sercha-silverline bg-white p-8 text-center shadow-sm">
+          <div className="mb-4 rounded-full bg-emerald-100 p-3">
+            <CheckCircle className="h-8 w-8 text-emerald-600" />
+          </div>
+          <h2 className="mb-2 text-xl font-semibold text-sercha-ink-slate">
+            Setup Already Complete
+          </h2>
+          <p className="mb-6 text-sercha-fog-grey">
+            Sercha has already been configured. Please log in to continue.
+          </p>
+          <Link
+            href="/login"
+            className="rounded-full bg-sercha-indigo px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-sercha-indigo/90"
+          >
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col px-4 py-8">

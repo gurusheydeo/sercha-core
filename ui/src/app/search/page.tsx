@@ -6,7 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Search,
-  Settings,
   FileText,
   Code,
   Github,
@@ -18,6 +17,7 @@ import {
   ExternalLink,
   User,
   LogOut,
+  Settings,
 } from "lucide-react";
 import { search, getDocumentURL, SearchResultItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -180,11 +180,11 @@ function SearchResultsContent() {
             </button>
           </form>
 
-          {/* Admin Link - only visible to admins */}
+          {/* Admin Link */}
           {isAdmin && (
             <Link
               href="/admin"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sercha-fog-grey transition-colors hover:bg-sercha-mist hover:text-sercha-indigo"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-sercha-fog-grey hover:bg-sercha-mist hover:text-sercha-indigo"
             >
               <Settings size={18} />
               Admin

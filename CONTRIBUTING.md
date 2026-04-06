@@ -81,10 +81,8 @@ sercha-core/
 │   │   └── lib/                 # Utilities and API client
 │   └── Dockerfile               # UI build configuration
 ├── examples/                    # Deployment examples
-│   ├── quickstart/              # Single container setup
-│   ├── multinode/               # Separate API/worker
-│   ├── multinode-ha/            # High availability setup
-│   └── dev/                     # Development environment
+│   ├── quickstart/              # Pre-built images from ghcr.io
+│   └── dev/                     # Development (builds from source)
 ├── swagger/                     # Swagger/OpenAPI documentation
 ├── .github/
 │   └── workflows/               # GitHub Actions
@@ -97,17 +95,19 @@ sercha-core/
 ### Setting Up the Development Environment
 
 ```bash
-# Start dependencies (PostgreSQL, Vespa)
+# Terminal 1: Start backend (builds from source, includes all dependencies)
 cd examples/dev
-docker compose up -d postgres vespa
+docker compose up -d
 
-# Wait for Vespa to initialize (1-2 minutes)
-docker compose logs -f vespa
-
-# Run the server in development mode
-cd ../..
-go run ./cmd/sercha-core all
+# Terminal 2: Start UI with hot reload
+cd ui
+npm install
+npm run dev   # http://localhost:3001
 ```
+
+The Next.js dev server automatically proxies `/api/*` requests to `localhost:8080`.
+
+Wait 1-2 minutes for Vespa to initialize on first run.
 
 ### Daily Development
 
@@ -416,11 +416,11 @@ npm install
 ### Development Server
 
 ```bash
-# Start the UI dev server (connects to local API)
-NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev
-
-# UI available at http://localhost:3000
+# Start the UI dev server with hot reload
+npm run dev   # http://localhost:3001
 ```
+
+The dev server automatically proxies `/api/*` requests to `localhost:8080` (configured in `next.config.ts`).
 
 ### Building
 
