@@ -3,7 +3,7 @@ package driven
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // Container represents a top-level container that can be selected for indexing.

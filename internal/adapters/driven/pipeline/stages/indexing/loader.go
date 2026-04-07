@@ -2,12 +2,13 @@ package indexing
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
-	pipelineport "github.com/custodia-labs/sercha-core/internal/core/ports/driven/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
+	pipelineport "github.com/sercha-oss/sercha-core/internal/core/ports/driven/pipeline"
 )
 
 const LoaderStageID = "loader"
@@ -92,8 +93,13 @@ func (s *LoaderStage) Process(ctx context.Context, input any) (any, error) {
 	}
 
 	// Convert pipeline chunks to domain chunks
+	hasEmbeddings := false
 	domainChunks := make([]*domain.Chunk, len(chunks))
 	for i, chunk := range chunks {
+		if len(chunk.Embedding) > 0 {
+			hasEmbeddings = true
+		}
+
 		domainChunks[i] = &domain.Chunk{
 			ID:         chunk.ID,
 			DocumentID: chunk.DocumentID,
@@ -105,6 +111,13 @@ func (s *LoaderStage) Process(ctx context.Context, input any) (any, error) {
 			EndChar:    chunk.EndOffset,
 			CreatedAt:  time.Now(),
 		}
+	}
+
+	// Log informational message if indexing without embeddings (BM25-only mode)
+	if !hasEmbeddings {
+		slog.Warn("indexing chunks without embeddings (BM25-only mode)",
+			"document_id", chunks[0].DocumentID,
+			"chunk_count", len(chunks))
 	}
 
 	// Index chunks

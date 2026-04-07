@@ -1,7 +1,7 @@
 package driven
 
 import (
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // AIServiceFactory creates AI services based on configuration.

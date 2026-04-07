@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 )
 
 func TestPipelineRegistry_Register(t *testing.T) {

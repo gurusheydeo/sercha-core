@@ -28,7 +28,7 @@ Thank you for your interest in contributing to Sercha Core! This document provid
    ```
 3. Add the upstream remote:
    ```bash
-   git remote add upstream https://github.com/custodia-labs/sercha-core.git
+   git remote add upstream https://github.com/sercha-oss/sercha-core.git
    ```
 4. Keep your fork synced:
    ```bash

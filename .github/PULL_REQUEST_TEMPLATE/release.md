@@ -30,7 +30,7 @@
 
 After this PR is merged:
 1. GitHub Actions will create tag `v<VERSION>`
-2. Docker image will be built and pushed to `ghcr.io/custodia-labs/sercha-core`
+2. Docker image will be built and pushed to `ghcr.io/sercha-oss/sercha-core`
 3. GitHub Release will be created with auto-generated notes
 
 ## Approvals

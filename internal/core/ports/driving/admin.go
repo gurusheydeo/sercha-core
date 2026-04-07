@@ -3,7 +3,7 @@ package driving
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // ListJobsRequest represents filtering options for job history

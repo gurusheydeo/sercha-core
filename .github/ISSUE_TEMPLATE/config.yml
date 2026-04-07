@@ -4,5 +4,5 @@ contact_links:
     url: mailto:security@custodialabs.com
     about: Please report security vulnerabilities via email
   - name: Documentation
-    url: https://github.com/custodia-labs/sercha-core/blob/main/README.md
+    url: https://github.com/sercha-oss/sercha-core/blob/main/README.md
     about: Check the documentation before opening an issue

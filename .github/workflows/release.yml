@@ -61,8 +61,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/custodia-labs/sercha-core:${{ needs.create-tag.outputs.version }}
-            ghcr.io/custodia-labs/sercha-core:latest
+            ghcr.io/sercha-oss/sercha-core:${{ needs.create-tag.outputs.version }}
+            ghcr.io/sercha-oss/sercha-core:latest
           build-args: |
             VERSION=${{ needs.create-tag.outputs.version }}
           cache-from: type=gha
@@ -78,11 +78,11 @@ jobs:
             ## Docker Image
 
             ```bash
-            docker pull ghcr.io/custodia-labs/sercha-core:${{ needs.create-tag.outputs.version }}
+            docker pull ghcr.io/sercha-oss/sercha-core:${{ needs.create-tag.outputs.version }}
             ```
 
             ## Quick Start
 
             ```bash
-            docker run -p 8080:8080 ghcr.io/custodia-labs/sercha-core:${{ needs.create-tag.outputs.version }}
+            docker run -p 8080:8080 ghcr.io/sercha-oss/sercha-core:${{ needs.create-tag.outputs.version }}
             ```

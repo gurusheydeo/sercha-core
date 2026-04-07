@@ -1,6 +1,6 @@
 package driven
 
-import "github.com/custodia-labs/sercha-core/internal/core/domain"
+import "github.com/sercha-oss/sercha-core/internal/core/domain"
 
 // OAuthCredentials holds OAuth client credentials from environment variables
 type OAuthCredentials struct {

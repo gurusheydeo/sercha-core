@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // MockChunkStore is a mock implementation of ChunkStore for testing

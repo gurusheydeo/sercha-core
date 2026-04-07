@@ -1,4 +1,4 @@
-module github.com/custodia-labs/sercha-core
+module github.com/sercha-oss/sercha-core
 
 go 1.24.0
 

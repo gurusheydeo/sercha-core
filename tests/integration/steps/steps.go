@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/custodia-labs/sercha-core/tests/integration/support"
+	"github.com/sercha-oss/sercha-core/tests/integration/support"
 )
 
 var testCtx *support.TestContext

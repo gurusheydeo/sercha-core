@@ -3,7 +3,7 @@ package driven
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // TaskQueue handles background task queuing and processing.

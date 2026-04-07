@@ -3,7 +3,7 @@ package normalisers
 import (
 	"testing"
 
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Mock normaliser for testing

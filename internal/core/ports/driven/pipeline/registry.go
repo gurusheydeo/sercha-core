@@ -1,7 +1,7 @@
 package pipeline
 
 import (
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 )
 
 // StageRegistry holds available stage factories.

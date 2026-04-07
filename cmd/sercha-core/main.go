@@ -5,7 +5,7 @@ package main
 // @description     Privacy-focused enterprise search API. Sercha Core provides full-text and semantic search across your connected data sources.
 
 // @contact.name   Sercha OSS
-// @contact.url    https://github.com/custodia-labs/sercha-core/issues
+// @contact.url    https://github.com/sercha-oss/sercha-core/issues
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
@@ -30,30 +30,30 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/ai"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/auth"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/connectors"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/connectors/github"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/connectors/localfs"
-	pipelineexec "github.com/custodia-labs/sercha-core/internal/adapters/driven/pipeline/executor"
-	pipelinereg "github.com/custodia-labs/sercha-core/internal/adapters/driven/pipeline/registry"
-	indexingstages "github.com/custodia-labs/sercha-core/internal/adapters/driven/pipeline/stages/indexing"
-	searchstages "github.com/custodia-labs/sercha-core/internal/adapters/driven/pipeline/stages/search"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/postgres"
-	postgresqueue "github.com/custodia-labs/sercha-core/internal/adapters/driven/queue/postgres"
-	redisqueue "github.com/custodia-labs/sercha-core/internal/adapters/driven/queue/redis"
-	redisadapter "github.com/custodia-labs/sercha-core/internal/adapters/driven/redis"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/vespa"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driving/http"
-	"github.com/custodia-labs/sercha-core/internal/config"
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driving"
-	"github.com/custodia-labs/sercha-core/internal/core/services"
-	"github.com/custodia-labs/sercha-core/internal/normalisers"
-	"github.com/custodia-labs/sercha-core/internal/runtime"
-	"github.com/custodia-labs/sercha-core/internal/worker"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/ai"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/auth"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors/github"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors/localfs"
+	pipelineexec "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/executor"
+	pipelinereg "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/registry"
+	indexingstages "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/indexing"
+	searchstages "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/search"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/postgres"
+	postgresqueue "github.com/sercha-oss/sercha-core/internal/adapters/driven/queue/postgres"
+	redisqueue "github.com/sercha-oss/sercha-core/internal/adapters/driven/queue/redis"
+	redisadapter "github.com/sercha-oss/sercha-core/internal/adapters/driven/redis"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/vespa"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driving/http"
+	"github.com/sercha-oss/sercha-core/internal/config"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driving"
+	"github.com/sercha-oss/sercha-core/internal/core/services"
+	"github.com/sercha-oss/sercha-core/internal/normalisers"
+	"github.com/sercha-oss/sercha-core/internal/runtime"
+	"github.com/sercha-oss/sercha-core/internal/worker"
 	"github.com/redis/go-redis/v9"
 )
 

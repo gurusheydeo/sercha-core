@@ -1,6 +1,6 @@
 package config
 
-import "github.com/custodia-labs/sercha-core/internal/core/domain"
+import "github.com/sercha-oss/sercha-core/internal/core/domain"
 
 // This file contains helpers for computing capabilities from configuration.
 // The main capabilities computation is in config.go's GetCapabilities() method.

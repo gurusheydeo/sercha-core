@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // ConnectionStore persists connector connections with encrypted secrets.

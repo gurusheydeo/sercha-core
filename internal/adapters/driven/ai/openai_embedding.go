@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Ensure OpenAIEmbedding implements EmbeddingService
