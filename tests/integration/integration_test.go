@@ -11,7 +11,7 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
-	"github.com/custodia-labs/sercha-core/tests/integration/steps"
+	"github.com/sercha-oss/sercha-core/tests/integration/steps"
 )
 
 var opts = godog.Options{

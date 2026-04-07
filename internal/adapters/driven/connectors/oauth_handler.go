@@ -3,7 +3,7 @@ package connectors
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // OAuthHandler provides OAuth operations for a specific provider.

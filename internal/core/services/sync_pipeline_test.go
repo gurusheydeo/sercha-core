@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven/mocks"
-	"github.com/custodia-labs/sercha-core/internal/runtime"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven/mocks"
+	"github.com/sercha-oss/sercha-core/internal/runtime"
 )
 
 // mockIndexingExecutor is a mock implementation of IndexingExecutor for testing

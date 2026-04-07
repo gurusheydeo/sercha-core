@@ -3,9 +3,9 @@ package indexing
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
-	pipelineport "github.com/custodia-labs/sercha-core/internal/core/ports/driven/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
+	pipelineport "github.com/sercha-oss/sercha-core/internal/core/ports/driven/pipeline"
 )
 
 const EmbedderStageID = "embedder"
@@ -26,7 +26,7 @@ func NewEmbedderFactory() *EmbedderFactory {
 			OutputShape: pipeline.ShapeEmbeddedChunk,
 			Cardinality: pipeline.CardinalityManyToMany,
 			Capabilities: []pipeline.CapabilityRequirement{
-				{Type: pipeline.CapabilityEmbedder, Mode: pipeline.CapabilityRequired},
+				{Type: pipeline.CapabilityEmbedder, Mode: pipeline.CapabilityOptional},
 			},
 			Version: "1.0.0",
 		},
@@ -48,7 +48,8 @@ func (f *EmbedderFactory) Create(config pipeline.StageConfig, capabilities *pipe
 	// Get embedding service from capabilities
 	inst, ok := capabilities.Get(pipeline.CapabilityEmbedder)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "embedder capability not available"}
+		// Embedder capability is optional - return no-op stage
+		return &NoOpEmbedderStage{descriptor: f.descriptor}, nil
 	}
 
 	embedder, ok := inst.Instance.(driven.EmbeddingService)
@@ -122,8 +123,33 @@ func (s *EmbedderStage) Process(ctx context.Context, input any) (any, error) {
 	return chunks, nil
 }
 
+// NoOpEmbedderStage is a pass-through stage used when embedder capability is not available.
+// It passes chunks through unchanged without generating embeddings.
+type NoOpEmbedderStage struct {
+	descriptor pipeline.StageDescriptor
+}
+
+// Descriptor returns the stage descriptor.
+func (s *NoOpEmbedderStage) Descriptor() pipeline.StageDescriptor {
+	return s.descriptor
+}
+
+// Process passes chunks through unchanged.
+func (s *NoOpEmbedderStage) Process(ctx context.Context, input any) (any, error) {
+	chunks, ok := input.([]*pipeline.Chunk)
+	if !ok {
+		return nil, &StageError{Stage: s.descriptor.ID, Message: "expected []*pipeline.Chunk"}
+	}
+
+	// Pass through unchanged - no embeddings added
+	return chunks, nil
+}
+
 // Ensure EmbedderFactory implements StageFactory.
 var _ pipelineport.StageFactory = (*EmbedderFactory)(nil)
 
 // Ensure EmbedderStage implements Stage.
 var _ pipelineport.Stage = (*EmbedderStage)(nil)
+
+// Ensure NoOpEmbedderStage implements Stage.
+var _ pipelineport.Stage = (*NoOpEmbedderStage)(nil)

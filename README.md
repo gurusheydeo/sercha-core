@@ -26,9 +26,9 @@
     <br />
     <a href="https://docs.sercha.dev/core">Documentation</a>
     &middot;
-    <a href="https://github.com/custodia-labs/sercha-core/issues/new?labels=bug&template=bug_report.md">Report Bug</a>
+    <a href="https://github.com/sercha-oss/sercha-core/issues/new?labels=bug&template=bug_report.md">Report Bug</a>
     &middot;
-    <a href="https://github.com/custodia-labs/sercha-core/issues/new?labels=enhancement&template=feature_request.md">Request Feature</a>
+    <a href="https://github.com/sercha-oss/sercha-core/issues/new?labels=enhancement&template=feature_request.md">Request Feature</a>
   </p>
 </div>
 
@@ -118,7 +118,7 @@ The fastest way to get started is using the quickstart example:
 
 ```bash
 # Clone the repository
-git clone https://github.com/custodia-labs/sercha-core.git
+git clone https://github.com/sercha-oss/sercha-core.git
 cd sercha-core/examples/quickstart
 
 # Start services
@@ -307,8 +307,8 @@ Contributions are welcome! Please read our contributing guidelines before submit
 
 ### Quick Links
 
-- [Open Issues](https://github.com/custodia-labs/sercha-core/issues)
-- [Pull Requests](https://github.com/custodia-labs/sercha-core/pulls)
+- [Open Issues](https://github.com/sercha-oss/sercha-core/issues)
+- [Pull Requests](https://github.com/sercha-oss/sercha-core/pulls)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -320,16 +320,16 @@ Distributed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[release-shield]: https://img.shields.io/github/v/release/custodia-labs/sercha-core
-[release-url]: https://github.com/custodia-labs/sercha-core/releases/latest
+[release-shield]: https://img.shields.io/github/v/release/sercha-oss/sercha-core
+[release-url]: https://github.com/sercha-oss/sercha-core/releases/latest
 [license-shield]: https://img.shields.io/badge/License-Apache_2.0-blue.svg
 [license-url]: https://opensource.org/licenses/Apache-2.0
-[goreport-shield]: https://goreportcard.com/badge/github.com/custodia-labs/sercha-core
-[goreport-url]: https://goreportcard.com/report/github.com/custodia-labs/sercha-core
-[ci-workflow-shield]: https://github.com/custodia-labs/sercha-core/actions/workflows/go-ci.yml/badge.svg
-[ci-workflow-url]: https://github.com/custodia-labs/sercha-core/actions/workflows/go-ci.yml
+[goreport-shield]: https://goreportcard.com/badge/github.com/sercha-oss/sercha-core
+[goreport-url]: https://goreportcard.com/report/github.com/sercha-oss/sercha-core
+[ci-workflow-shield]: https://github.com/sercha-oss/sercha-core/actions/workflows/go-ci.yml/badge.svg
+[ci-workflow-url]: https://github.com/sercha-oss/sercha-core/actions/workflows/go-ci.yml
 [contributions-shield]: https://img.shields.io/badge/contributions-welcome-brightgreen.svg
-[contributions-url]: https://github.com/custodia-labs/sercha-core/blob/main/CONTRIBUTING.md
+[contributions-url]: https://github.com/sercha-oss/sercha-core/blob/main/CONTRIBUTING.md
 [Go-badge]: https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white
 [Go-url]: https://go.dev/
 [Postgres-badge]: https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white

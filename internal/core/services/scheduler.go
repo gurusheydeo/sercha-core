@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Scheduler manages periodic task scheduling.

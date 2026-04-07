@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/connectors"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Ensure OAuthHandler implements the interface.

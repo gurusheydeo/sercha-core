@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	pipelineport "github.com/custodia-labs/sercha-core/internal/core/ports/driven/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	pipelineport "github.com/sercha-oss/sercha-core/internal/core/ports/driven/pipeline"
 )
 
 // PipelineBuilder constructs executable pipelines from definitions.
@@ -40,6 +40,17 @@ func (b *PipelineBuilder) Build(def pipeline.PipelineDefinition, capabilities *p
 
 		stage, err := factory.Create(stageConfig, capabilities)
 		if err != nil {
+			// Check if this stage has only optional capabilities
+			descriptor := factory.Descriptor()
+			requiredCaps := descriptor.GetRequiredCapabilities()
+
+			// If stage has no required capabilities (all optional), skip it gracefully
+			if len(requiredCaps) == 0 {
+				// Log and skip this stage
+				continue
+			}
+
+			// Stage has required capabilities, so fail the build
 			return nil, fmt.Errorf("failed to create stage %d (%s): %w", i, stageConfig.StageID, err)
 		}
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // mockEmbeddingService is a mock implementation for testing

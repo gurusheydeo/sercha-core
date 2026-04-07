@@ -11,7 +11,7 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "contact": {
             "name": "Sercha OSS",
-            "url": "https://github.com/custodia-labs/sercha-core/issues"
+            "url": "https://github.com/sercha-oss/sercha-core/issues"
         },
         "license": {
             "name": "Apache 2.0",
@@ -67,7 +67,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.JobHistory"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.JobHistory"
                         }
                     },
                     "401": {
@@ -119,7 +119,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.JobStats"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.JobStats"
                         }
                     },
                     "401": {
@@ -162,7 +162,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UpcomingJobs"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UpcomingJobs"
                         }
                     },
                     "401": {
@@ -214,7 +214,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.JobDetail"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.JobDetail"
                         }
                     },
                     "400": {
@@ -275,7 +275,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.TriggerReindexRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.TriggerReindexRequest"
                         }
                     }
                 ],
@@ -341,7 +341,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchAnalytics"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchAnalytics"
                         }
                     },
                     "401": {
@@ -394,7 +394,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchQuery"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchQuery"
                             }
                         }
                     },
@@ -447,7 +447,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMetrics"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMetrics"
                         }
                     },
                     "401": {
@@ -539,7 +539,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.ConnectVespaRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.ConnectVespaRequest"
                         }
                     }
                 ],
@@ -547,7 +547,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.VespaStatus"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.VespaStatus"
                         }
                     },
                     "400": {
@@ -682,7 +682,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.VespaStatus"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.VespaStatus"
                         }
                     },
                     "401": {
@@ -726,7 +726,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.LoginRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.LoginRequest"
                         }
                     }
                 ],
@@ -734,7 +734,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.LoginResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.LoginResponse"
                         }
                     },
                     "400": {
@@ -803,7 +803,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.RefreshRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.RefreshRequest"
                         }
                     }
                 ],
@@ -811,7 +811,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.LoginResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.LoginResponse"
                         }
                     },
                     "400": {
@@ -843,7 +843,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.CapabilitiesResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.CapabilitiesResponse"
                         }
                     },
                     "500": {
@@ -876,7 +876,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ConnectionSummary"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ConnectionSummary"
                             }
                         }
                     },
@@ -924,7 +924,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.CreateConnectionRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.CreateConnectionRequest"
                         }
                     }
                 ],
@@ -932,7 +932,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ConnectionSummary"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ConnectionSummary"
                         }
                     },
                     "400": {
@@ -990,7 +990,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ConnectionSummary"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ConnectionSummary"
                         }
                     },
                     "400": {
@@ -1128,7 +1128,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.ListContainersResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.ListContainersResponse"
                         }
                     },
                     "400": {
@@ -1194,7 +1194,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Source"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Source"
                             }
                         }
                     },
@@ -1323,7 +1323,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.DocumentWithChunks"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.DocumentWithChunks"
                         }
                     },
                     "400": {
@@ -1381,7 +1381,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.DocumentWithChunks"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.DocumentWithChunks"
                         }
                     },
                     "400": {
@@ -1508,7 +1508,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary"
                         }
                     },
                     "401": {
@@ -1599,7 +1599,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AuthorizeRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AuthorizeRequest"
                         }
                     }
                 ],
@@ -1607,7 +1607,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AuthorizeResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AuthorizeResponse"
                         }
                     },
                     "400": {
@@ -1664,7 +1664,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.ProviderListItem"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.ProviderListItem"
                             }
                         }
                     },
@@ -1742,7 +1742,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchResult"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchResult"
                         }
                     },
                     "400": {
@@ -1785,7 +1785,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Settings"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Settings"
                         }
                     },
                     "401": {
@@ -1832,7 +1832,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateSettingsRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateSettingsRequest"
                         }
                     }
                 ],
@@ -1840,7 +1840,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Settings"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Settings"
                         }
                     },
                     "400": {
@@ -1936,7 +1936,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateAISettingsRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateAISettingsRequest"
                         }
                     }
                 ],
@@ -1944,7 +1944,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AISettingsStatus"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AISettingsStatus"
                         }
                     },
                     "400": {
@@ -1993,7 +1993,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIProvidersResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIProvidersResponse"
                         }
                     },
                     "401": {
@@ -2030,7 +2030,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AISettingsStatus"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AISettingsStatus"
                         }
                     },
                     "401": {
@@ -2111,7 +2111,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.SetupRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.SetupRequest"
                         }
                     }
                 ],
@@ -2119,7 +2119,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.SetupResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.SetupResponse"
                         }
                     },
                     "400": {
@@ -2157,7 +2157,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.SetupStatusResponse"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.SetupStatusResponse"
                         }
                     },
                     "500": {
@@ -2190,7 +2190,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SourceSummary"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SourceSummary"
                             }
                         }
                     },
@@ -2232,7 +2232,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.CreateSourceRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.CreateSourceRequest"
                         }
                     }
                 ],
@@ -2240,7 +2240,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Source"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Source"
                         }
                     },
                     "400": {
@@ -2297,7 +2297,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SyncState"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SyncState"
                             }
                         }
                     },
@@ -2350,7 +2350,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Source"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Source"
                         }
                     },
                     "400": {
@@ -2410,7 +2410,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateSourceRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateSourceRequest"
                         }
                     }
                 ],
@@ -2418,7 +2418,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Source"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Source"
                         }
                     },
                     "400": {
@@ -2818,7 +2818,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SyncState"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SyncState"
                         }
                     },
                     "400": {
@@ -2925,7 +2925,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary"
+                                "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary"
                             }
                         }
                     },
@@ -2973,7 +2973,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.CreateUserRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.CreateUserRequest"
                         }
                     }
                 ],
@@ -2981,7 +2981,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary"
                         }
                     },
                     "400": {
@@ -3045,7 +3045,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary"
                         }
                     },
                     "400": {
@@ -3111,7 +3111,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateUserRequest"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateUserRequest"
                         }
                     }
                 ],
@@ -3119,7 +3119,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary"
                         }
                     },
                     "400": {
@@ -3315,7 +3315,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_custodia-labs_sercha-core_internal_core_domain.AIModelInfo": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.AIModelInfo": {
             "type": "object",
             "properties": {
                 "dimensions": {
@@ -3332,7 +3332,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider": {
             "type": "string",
             "enum": [
                 "openai",
@@ -3349,7 +3349,7 @@ const docTemplate = `{
                 "AIProviderVoyage"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.AIProviderInfo": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.AIProviderInfo": {
             "type": "object",
             "properties": {
                 "api_key_url": {
@@ -3364,7 +3364,7 @@ const docTemplate = `{
                     "description": "Available models",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIModelInfo"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIModelInfo"
                     }
                 },
                 "name": {
@@ -3381,7 +3381,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.AnalyticsPeriod": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.AnalyticsPeriod": {
             "type": "object",
             "properties": {
                 "end": {
@@ -3392,7 +3392,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.AuthMethod": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.AuthMethod": {
             "type": "string",
             "enum": [
                 "oauth2",
@@ -3419,7 +3419,7 @@ const docTemplate = `{
                 "AuthMethodPAT"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Chunk": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Chunk": {
             "type": "object",
             "properties": {
                 "content": {
@@ -3455,14 +3455,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.ConnectionSummary": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.ConnectionSummary": {
             "type": "object",
             "properties": {
                 "account_id": {
                     "type": "string"
                 },
                 "auth_method": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AuthMethod"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AuthMethod"
                 },
                 "created_at": {
                     "type": "string"
@@ -3480,11 +3480,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "provider_type": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Container": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Container": {
             "type": "object",
             "properties": {
                 "id": {
@@ -3504,7 +3504,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Document": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Document": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -3544,21 +3544,21 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.DocumentWithChunks": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.DocumentWithChunks": {
             "type": "object",
             "properties": {
                 "chunks": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Chunk"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Chunk"
                     }
                 },
                 "document": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Document"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Document"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.JobDetail": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.JobDetail": {
             "type": "object",
             "properties": {
                 "execution_logs": {
@@ -3572,7 +3572,7 @@ const docTemplate = `{
                     "description": "RetryHistory shows previous retry attempts",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.RetryAttempt"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.RetryAttempt"
                     }
                 },
                 "source_name": {
@@ -3583,13 +3583,13 @@ const docTemplate = `{
                     "description": "Task is the main task information",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Task"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Task"
                         }
                     ]
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.JobHistory": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.JobHistory": {
             "type": "object",
             "properties": {
                 "has_more": {
@@ -3600,7 +3600,7 @@ const docTemplate = `{
                     "description": "Jobs is the list of historical job executions",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Task"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Task"
                     }
                 },
                 "total_count": {
@@ -3609,7 +3609,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.JobStats": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.JobStats": {
             "type": "object",
             "properties": {
                 "average_duration_ms": {
@@ -3640,7 +3640,7 @@ const docTemplate = `{
                     "description": "Period is the time range for these statistics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AnalyticsPeriod"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AnalyticsPeriod"
                         }
                     ]
                 },
@@ -3662,7 +3662,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.LoginRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.LoginRequest": {
             "type": "object",
             "properties": {
                 "email": {
@@ -3673,7 +3673,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.LoginResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.LoginResponse": {
             "type": "object",
             "properties": {
                 "expires_at": {
@@ -3686,11 +3686,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType": {
             "type": "string",
             "enum": [
                 "github",
@@ -3733,7 +3733,7 @@ const docTemplate = `{
                 "ProviderTypeIntercom"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.QueryFrequency": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.QueryFrequency": {
             "type": "object",
             "properties": {
                 "count": {
@@ -3744,14 +3744,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.RankedChunk": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.RankedChunk": {
             "type": "object",
             "properties": {
                 "chunk": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Chunk"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Chunk"
                 },
                 "document": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Document"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Document"
                 },
                 "highlights": {
                     "description": "Highlighted snippets",
@@ -3765,7 +3765,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.RefreshRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.RefreshRequest": {
             "type": "object",
             "properties": {
                 "refresh_token": {
@@ -3773,7 +3773,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.RetryAttempt": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.RetryAttempt": {
             "type": "object",
             "properties": {
                 "attempt": {
@@ -3790,7 +3790,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Role": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Role": {
             "type": "string",
             "enum": [
                 "admin",
@@ -3813,7 +3813,7 @@ const docTemplate = `{
                 "RoleViewer"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.ScheduledTask": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.ScheduledTask": {
             "type": "object",
             "properties": {
                 "enabled": {
@@ -3856,13 +3856,13 @@ const docTemplate = `{
                     "description": "Type is the task type to create when triggered",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.TaskType"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.TaskType"
                         }
                     ]
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SearchAnalytics": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SearchAnalytics": {
             "type": "object",
             "properties": {
                 "average_duration_ms": {
@@ -3877,7 +3877,7 @@ const docTemplate = `{
                     "description": "Period is the time range for these analytics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AnalyticsPeriod"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AnalyticsPeriod"
                         }
                     ]
                 },
@@ -3893,7 +3893,7 @@ const docTemplate = `{
                     "description": "TopQueries are the most common search queries",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.QueryFrequency"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.QueryFrequency"
                     }
                 },
                 "total_searches": {
@@ -3906,7 +3906,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SearchMetrics": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SearchMetrics": {
             "type": "object",
             "properties": {
                 "fast_searches": {
@@ -3933,7 +3933,7 @@ const docTemplate = `{
                     "description": "Period is the time range for these metrics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AnalyticsPeriod"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AnalyticsPeriod"
                         }
                     ]
                 },
@@ -3947,7 +3947,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode": {
             "type": "string",
             "enum": [
                 "hybrid",
@@ -3970,7 +3970,7 @@ const docTemplate = `{
                 "SearchModeSemanticOnly"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SearchQuery": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SearchQuery": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -3993,7 +3993,7 @@ const docTemplate = `{
                     "description": "Mode is the search mode used (hybrid, text, semantic)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode"
                         }
                     ]
                 },
@@ -4022,11 +4022,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SearchResult": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SearchResult": {
             "type": "object",
             "properties": {
                 "mode": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode"
                 },
                 "query": {
                     "type": "string"
@@ -4034,7 +4034,7 @@ const docTemplate = `{
                 "results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.RankedChunk"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.RankedChunk"
                     }
                 },
                 "took": {
@@ -4046,7 +4046,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Settings": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Settings": {
             "type": "object",
             "properties": {
                 "auto_suggest_enabled": {
@@ -4056,7 +4056,7 @@ const docTemplate = `{
                     "description": "Search Defaults",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode"
                         }
                     ]
                 },
@@ -4090,11 +4090,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Source": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Source": {
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SourceConfig"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SourceConfig"
                 },
                 "connection_id": {
                     "description": "ConnectionID references the connector connection for authentication",
@@ -4104,7 +4104,7 @@ const docTemplate = `{
                     "description": "Containers lists the containers to index (typed)\nEmpty means index all accessible containers\nExamples: repos for GitHub, channels for Slack, folders for Drive",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Container"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Container"
                     }
                 },
                 "created_at": {
@@ -4124,14 +4124,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "provider_type": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                 },
                 "updated_at": {
                     "type": "string"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SourceConfig": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SourceConfig": {
             "type": "object",
             "properties": {
                 "base_url": {
@@ -4210,7 +4210,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SourceSummary": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SourceSummary": {
             "type": "object",
             "properties": {
                 "document_count": {
@@ -4220,14 +4220,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Source"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Source"
                 },
                 "sync_status": {
                     "type": "string"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SyncState": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SyncState": {
             "type": "object",
             "properties": {
                 "completed_at": {
@@ -4253,14 +4253,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "stats": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SyncStats"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SyncStats"
                 },
                 "status": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SyncStatus"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SyncStatus"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SyncStats": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SyncStats": {
             "type": "object",
             "properties": {
                 "chunks_indexed": {
@@ -4280,7 +4280,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.SyncStatus": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.SyncStatus": {
             "type": "string",
             "enum": [
                 "idle",
@@ -4295,7 +4295,7 @@ const docTemplate = `{
                 "SyncStatusFailed"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.Task": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.Task": {
             "type": "object",
             "properties": {
                 "attempts": {
@@ -4345,7 +4345,7 @@ const docTemplate = `{
                     "description": "Status is the current state of the task",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.TaskStatus"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.TaskStatus"
                         }
                     ]
                 },
@@ -4357,7 +4357,7 @@ const docTemplate = `{
                     "description": "Type identifies what kind of task this is",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.TaskType"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.TaskType"
                         }
                     ]
                 },
@@ -4367,7 +4367,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.TaskStatus": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.TaskStatus": {
             "type": "string",
             "enum": [
                 "pending",
@@ -4382,7 +4382,7 @@ const docTemplate = `{
                 "TaskStatusFailed"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.TaskType": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.TaskType": {
             "type": "string",
             "enum": [
                 "sync_source",
@@ -4393,7 +4393,7 @@ const docTemplate = `{
                 "TaskTypeSyncAll"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.UpcomingJobs": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.UpcomingJobs": {
             "type": "object",
             "properties": {
                 "next_scheduled_run": {
@@ -4404,19 +4404,19 @@ const docTemplate = `{
                     "description": "PendingTasks are tasks ready to be processed now",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Task"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Task"
                     }
                 },
                 "scheduled_tasks": {
                     "description": "ScheduledTasks are recurring task schedules",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ScheduledTask"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ScheduledTask"
                     }
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.User": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.User": {
             "type": "object",
             "properties": {
                 "active": {
@@ -4438,7 +4438,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Role"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Role"
                 },
                 "team_id": {
                     "type": "string"
@@ -4448,7 +4448,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.UserSummary": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.UserSummary": {
             "type": "object",
             "properties": {
                 "active": {
@@ -4467,30 +4467,30 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Role"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Role"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.VespaClusterInfo": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.VespaClusterInfo": {
             "type": "object",
             "properties": {
                 "container_clusters": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.VespaContainerCluster"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.VespaContainerCluster"
                     }
                 },
                 "content_clusters": {
                     "description": "Parsed cluster information",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.VespaContentCluster"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.VespaContentCluster"
                     }
                 },
                 "hosts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.VespaHost"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.VespaHost"
                     }
                 },
                 "hosts_xml": {
@@ -4512,7 +4512,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.VespaContainerCluster": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.VespaContainerCluster": {
             "type": "object",
             "properties": {
                 "has_feed": {
@@ -4535,7 +4535,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.VespaContentCluster": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.VespaContentCluster": {
             "type": "object",
             "properties": {
                 "documents": {
@@ -4558,7 +4558,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.VespaHost": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.VespaHost": {
             "type": "object",
             "properties": {
                 "alias": {
@@ -4569,7 +4569,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_domain.VespaSchemaMode": {
+        "github_com_sercha-oss_sercha-core_internal_core_domain.VespaSchemaMode": {
             "type": "string",
             "enum": [
                 "",
@@ -4582,7 +4582,7 @@ const docTemplate = `{
                 "VespacSchemaModeHybrid"
             ]
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driven.Container": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driven.Container": {
             "type": "object",
             "properties": {
                 "description": {
@@ -4610,43 +4610,43 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIProvidersCapability": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIProvidersCapability": {
             "type": "object",
             "properties": {
                 "embedding": {
                     "description": "Embedding lists providers available for embedding service",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                     }
                 },
                 "llm": {
                     "description": "LLM lists providers available for LLM service",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                     }
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIProvidersResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIProvidersResponse": {
             "type": "object",
             "properties": {
                 "embedding": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProviderInfo"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProviderInfo"
                     }
                 },
                 "llm": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProviderInfo"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProviderInfo"
                     }
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIServiceStatus": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIServiceStatus": {
             "type": "object",
             "properties": {
                 "available": {
@@ -4660,28 +4660,28 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "provider": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.AISettingsStatus": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.AISettingsStatus": {
             "type": "object",
             "properties": {
                 "effective_search_mode": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode"
                 },
                 "embedding": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIServiceStatus"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIServiceStatus"
                 },
                 "llm": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIServiceStatus"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIServiceStatus"
                 },
                 "vespa": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.VespaServiceStatus"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.VespaServiceStatus"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.AuthorizeRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.AuthorizeRequest": {
             "description": "Request to start OAuth authorization flow",
             "type": "object",
             "properties": {
@@ -4694,7 +4694,7 @@ const docTemplate = `{
                     "description": "ProviderType is the OAuth provider (github, slack, notion, etc.)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                         }
                     ],
                     "example": "github"
@@ -4706,7 +4706,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.AuthorizeResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.AuthorizeResponse": {
             "description": "Response containing the OAuth authorization URL",
             "type": "object",
             "properties": {
@@ -4727,7 +4727,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.CapabilitiesResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.CapabilitiesResponse": {
             "description": "Information about what features are enabled via environment configuration",
             "type": "object",
             "properties": {
@@ -4735,7 +4735,7 @@ const docTemplate = `{
                     "description": "AIProviders lists AI providers available for embedding and LLM",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.AIProvidersCapability"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.AIProvidersCapability"
                         }
                     ]
                 },
@@ -4743,7 +4743,7 @@ const docTemplate = `{
                     "description": "Features lists feature flags",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.FeaturesCapability"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.FeaturesCapability"
                         }
                     ]
                 },
@@ -4751,7 +4751,7 @@ const docTemplate = `{
                     "description": "Limits defines operational boundaries from environment configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.LimitsCapability"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.LimitsCapability"
                         }
                     ]
                 },
@@ -4759,12 +4759,12 @@ const docTemplate = `{
                     "description": "OAuthProviders lists OAuth providers configured via environment variables",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                     }
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.ConnectVespaRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.ConnectVespaRequest": {
             "type": "object",
             "properties": {
                 "dev_mode": {
@@ -4777,7 +4777,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.CreateConnectionRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.CreateConnectionRequest": {
             "description": "Request to create a connection for API key or path-based connectors",
             "type": "object",
             "properties": {
@@ -4795,18 +4795,18 @@ const docTemplate = `{
                     "description": "ProviderType is the data source provider.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                         }
                     ],
                     "example": "localfs"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.CreateSourceRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.CreateSourceRequest": {
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SourceConfig"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SourceConfig"
                 },
                 "connection_id": {
                     "type": "string"
@@ -4814,18 +4814,18 @@ const docTemplate = `{
                 "containers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Container"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Container"
                     }
                 },
                 "name": {
                     "type": "string"
                 },
                 "provider_type": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.CreateUserRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.CreateUserRequest": {
             "type": "object",
             "properties": {
                 "email": {
@@ -4838,22 +4838,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Role"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Role"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.EmbeddingSettingsInput": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.EmbeddingSettingsInput": {
             "type": "object",
             "properties": {
                 "model": {
                     "type": "string"
                 },
                 "provider": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.FeaturesCapability": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.FeaturesCapability": {
             "type": "object",
             "properties": {
                 "semantic_search": {
@@ -4866,18 +4866,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.LLMSettingsInput": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.LLMSettingsInput": {
             "type": "object",
             "properties": {
                 "model": {
                     "type": "string"
                 },
                 "provider": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.LimitsCapability": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.LimitsCapability": {
             "type": "object",
             "properties": {
                 "max_results_per_page": {
@@ -4898,7 +4898,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.ListContainersResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.ListContainersResponse": {
             "description": "Paginated list of containers available for indexing",
             "type": "object",
             "properties": {
@@ -4906,7 +4906,7 @@ const docTemplate = `{
                     "description": "Containers is the list of available containers (repos, drives, spaces, etc.)",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driven.Container"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driven.Container"
                     }
                 },
                 "has_more": {
@@ -4919,13 +4919,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.ProviderListItem": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.ProviderListItem": {
             "type": "object",
             "properties": {
                 "auth_methods": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AuthMethod"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AuthMethod"
                     }
                 },
                 "configured": {
@@ -4944,11 +4944,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.ProviderType"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.ProviderType"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.SetupRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.SetupRequest": {
             "type": "object",
             "properties": {
                 "email": {
@@ -4962,18 +4962,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.SetupResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.SetupResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.User"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.User"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.SetupStatusResponse": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.SetupStatusResponse": {
             "type": "object",
             "properties": {
                 "has_sources": {
@@ -4990,7 +4990,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.TriggerReindexRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.TriggerReindexRequest": {
             "type": "object",
             "properties": {
                 "priority": {
@@ -5006,25 +5006,25 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateAISettingsRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateAISettingsRequest": {
             "type": "object",
             "properties": {
                 "embedding": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.EmbeddingSettingsInput"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.EmbeddingSettingsInput"
                 },
                 "llm": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_ports_driving.LLMSettingsInput"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_ports_driving.LLMSettingsInput"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateSettingsRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateSettingsRequest": {
             "type": "object",
             "properties": {
                 "auto_suggest_enabled": {
                     "type": "boolean"
                 },
                 "default_search_mode": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode"
                 },
                 "results_per_page": {
                     "type": "integer"
@@ -5040,11 +5040,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateSourceRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateSourceRequest": {
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SourceConfig"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SourceConfig"
                 },
                 "enabled": {
                     "type": "boolean"
@@ -5054,7 +5054,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.UpdateUserRequest": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.UpdateUserRequest": {
             "type": "object",
             "properties": {
                 "active": {
@@ -5064,11 +5064,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Role"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Role"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.VespaServiceStatus": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.VespaServiceStatus": {
             "type": "object",
             "properties": {
                 "can_upgrade": {
@@ -5087,11 +5087,11 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "schema_mode": {
-                    "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.VespaSchemaMode"
+                    "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.VespaSchemaMode"
                 }
             }
         },
-        "github_com_custodia-labs_sercha-core_internal_core_ports_driving.VespaStatus": {
+        "github_com_sercha-oss_sercha-core_internal_core_ports_driving.VespaStatus": {
             "type": "object",
             "properties": {
                 "can_upgrade": {
@@ -5102,7 +5102,7 @@ const docTemplate = `{
                     "description": "ClusterInfo contains parsed information about the Vespa cluster (production mode only)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.VespaClusterInfo"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.VespaClusterInfo"
                         }
                     ]
                 },
@@ -5122,7 +5122,7 @@ const docTemplate = `{
                     "description": "EmbeddingProvider is the provider used for embeddings",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                         }
                     ]
                 },
@@ -5150,7 +5150,7 @@ const docTemplate = `{
                     "description": "SchemaMode indicates the deployed schema type (bm25, hybrid)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.VespaSchemaMode"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.VespaSchemaMode"
                         }
                     ]
                 },
@@ -5273,7 +5273,7 @@ const docTemplate = `{
                 "documents": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Document"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Document"
                     }
                 },
                 "limit": {
@@ -5345,7 +5345,7 @@ const docTemplate = `{
                     "description": "Containers is the list of containers to index.\nEmpty list means index all available containers.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.Container"
+                        "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.Container"
                     }
                 }
             }
@@ -5509,7 +5509,7 @@ const docTemplate = `{
                 "provider": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.AIProvider"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.AIProvider"
                         }
                     ],
                     "example": "openai"
@@ -5543,7 +5543,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_custodia-labs_sercha-core_internal_core_domain.SearchMode"
+                            "$ref": "#/definitions/github_com_sercha-oss_sercha-core_internal_core_domain.SearchMode"
                         }
                     ],
                     "example": "hybrid"

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven/mocks"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven/mocks"
 )
 
 func newTestAuthService() (*mocks.MockUserStore, *mocks.MockSessionStore, *mocks.MockAuthAdapter, *authService) {

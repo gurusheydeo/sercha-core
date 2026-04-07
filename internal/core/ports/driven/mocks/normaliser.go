@@ -1,7 +1,7 @@
 package mocks
 
 import (
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // MockNormaliser is a mock implementation of Normaliser for testing

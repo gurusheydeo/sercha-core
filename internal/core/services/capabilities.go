@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driving"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driving"
 )
 
 // Ensure capabilitiesService implements CapabilitiesService

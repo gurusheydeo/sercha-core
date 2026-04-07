@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	pipelineport "github.com/custodia-labs/sercha-core/internal/core/ports/driven/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	pipelineport "github.com/sercha-oss/sercha-core/internal/core/ports/driven/pipeline"
 )
 
 const QueryParserStageID = "query-parser"

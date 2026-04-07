@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
-	"github.com/custodia-labs/sercha-core/internal/core/ports/driven"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Verify interface compliance

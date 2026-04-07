@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // MockVespaConfigStore is a mock implementation of driven.VespaConfigStore

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // MockSearchEngine is a mock implementation of SearchEngine for testing

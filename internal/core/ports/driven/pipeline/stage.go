@@ -3,7 +3,7 @@ package pipeline
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 )
 
 // Stage is the core processing unit in a pipeline.

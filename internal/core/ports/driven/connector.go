@@ -3,7 +3,7 @@ package driven
 import (
 	"context"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // Connector fetches documents from a source provider.

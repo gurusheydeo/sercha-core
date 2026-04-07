@@ -1,10 +1,10 @@
 package stages
 
 import (
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/pipeline/stages/indexing"
-	"github.com/custodia-labs/sercha-core/internal/adapters/driven/pipeline/stages/search"
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
-	pipelineport "github.com/custodia-labs/sercha-core/internal/core/ports/driven/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/indexing"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/search"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
+	pipelineport "github.com/sercha-oss/sercha-core/internal/core/ports/driven/pipeline"
 )
 
 // BaseStageFactory provides common functionality for stage factories.

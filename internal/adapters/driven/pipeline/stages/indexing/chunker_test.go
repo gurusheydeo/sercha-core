@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain/pipeline"
+	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 )
 
 func TestChunkerFactory_Create(t *testing.T) {

@@ -34,7 +34,7 @@ services:
       start_period: 60s
 
   sercha:
-    image: ghcr.io/custodia-labs/sercha-core:latest
+    image: ghcr.io/sercha-oss/sercha-core:latest
     environment:
       DATABASE_URL: postgres://sercha:sercha_dev@postgres:5432/sercha?sslmode=disable
       VESPA_CONFIG_URL: http://vespa:19071

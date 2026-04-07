@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/custodia-labs/sercha-core/internal/core/domain"
+	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
 // MockDocumentStore is a mock implementation of DocumentStore for testing

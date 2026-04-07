@@ -1,6 +1,6 @@
 package driven
 
-import "github.com/custodia-labs/sercha-core/internal/core/domain"
+import "github.com/sercha-oss/sercha-core/internal/core/domain"
 
 // AuthAdapter handles authentication cryptographic operations.
 // This does NOT handle storage - use SessionStore for session persistence.
