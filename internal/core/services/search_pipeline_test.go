@@ -49,9 +49,8 @@ func TestSearchService_WithSearchExecutor(t *testing.T) {
 
 	// Create mock search executor
 	executor := &mockSearchExecutor{}
-	capabilitySet := pipeline.NewCapabilitySet()
 
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	// Save a document for enrichment
 	doc := &domain.Document{
@@ -129,9 +128,7 @@ func TestSearchWithPipeline_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	// Save documents for enrichment
 	doc1 := &domain.Document{ID: "doc-1", SourceID: "source-1", Title: "Document 1"}
@@ -195,9 +192,7 @@ func TestSearchWithPipeline_SourceFilter(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	// Search with source filter
 	_, err := svc.Search(context.Background(), "test", domain.SearchOptions{
@@ -237,9 +232,7 @@ func TestSearchWithPipeline_Pagination(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	// Search with pagination
 	_, err := svc.Search(context.Background(), "test", domain.SearchOptions{
@@ -284,9 +277,7 @@ func TestSearchWithPipeline_DocumentEnrichment(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	// Save document
 	doc := &domain.Document{
@@ -339,9 +330,8 @@ func TestSearchWithPipeline_ContextPassing(t *testing.T) {
 			}, nil
 		},
 	}
-	capSet := &pipeline.CapabilitySet{}
 
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capSet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	_, err := svc.Search(context.Background(), "test", domain.SearchOptions{
 		Mode:  domain.SearchModeHybrid,
@@ -359,9 +349,7 @@ func TestSearchWithPipeline_ContextPassing(t *testing.T) {
 	if capturedContext.PipelineID != "default-search" {
 		t.Errorf("expected PipelineID='default-search', got %s", capturedContext.PipelineID)
 	}
-	if capturedContext.Capabilities != capSet {
-		t.Error("expected capabilities to be passed through")
-	}
+	// Note: Capabilities are now built dynamically by the executor, not passed in constructor
 }
 
 // TestSearchWithPipeline_EmptyResults tests handling of empty results
@@ -382,9 +370,7 @@ func TestSearchWithPipeline_EmptyResults(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	result, err := svc.Search(context.Background(), "nonexistent", domain.SearchOptions{
 		Mode:  domain.SearchModeHybrid,
@@ -433,9 +419,7 @@ func TestSearchBySource_WithPipeline(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	result, err := svc.SearchBySource(context.Background(), "source-1", "test", domain.SearchOptions{
 		Mode:  domain.SearchModeHybrid,
@@ -489,9 +473,7 @@ func TestSearchWithPipeline_ResultMapping(t *testing.T) {
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-
-	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet)
+	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
 	result, err := svc.Search(context.Background(), "test", domain.SearchOptions{
 		Mode:  domain.SearchModeHybrid,

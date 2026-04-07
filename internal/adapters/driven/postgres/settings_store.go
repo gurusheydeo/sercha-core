@@ -24,10 +24,11 @@ func NewSettingsStore(db *DB) *SettingsStore {
 
 // GetSettings retrieves settings for a team
 // Note: AI configuration is managed via AISettings (ai_settings table), not here
+// Note: semantic_search_enabled column is deprecated - use capability_preferences table instead
 func (s *SettingsStore) GetSettings(ctx context.Context, teamID string) (*domain.Settings, error) {
 	query := `
 		SELECT team_id, default_search_mode, results_per_page, max_results_per_page,
-			   sync_interval_minutes, sync_enabled, semantic_search_enabled,
+			   sync_interval_minutes, sync_enabled,
 			   auto_suggest_enabled, updated_at, updated_by
 		FROM settings
 		WHERE team_id = $1
@@ -43,7 +44,6 @@ func (s *SettingsStore) GetSettings(ctx context.Context, teamID string) (*domain
 		&settings.MaxResultsPerPage,
 		&settings.SyncIntervalMinutes,
 		&settings.SyncEnabled,
-		&settings.SemanticSearchEnabled,
 		&settings.AutoSuggestEnabled,
 		&settings.UpdatedAt,
 		&updatedBy,
@@ -63,19 +63,19 @@ func (s *SettingsStore) GetSettings(ctx context.Context, teamID string) (*domain
 
 // SaveSettings persists team settings
 // Note: AI configuration is managed via SaveAISettings, not here
+// Note: semantic_search_enabled column is deprecated - use capability_preferences table instead
 func (s *SettingsStore) SaveSettings(ctx context.Context, settings *domain.Settings) error {
 	query := `
 		INSERT INTO settings (team_id, default_search_mode, results_per_page, max_results_per_page,
-							  sync_interval_minutes, sync_enabled, semantic_search_enabled,
+							  sync_interval_minutes, sync_enabled,
 							  auto_suggest_enabled, updated_at, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (team_id) DO UPDATE SET
 			default_search_mode = EXCLUDED.default_search_mode,
 			results_per_page = EXCLUDED.results_per_page,
 			max_results_per_page = EXCLUDED.max_results_per_page,
 			sync_interval_minutes = EXCLUDED.sync_interval_minutes,
 			sync_enabled = EXCLUDED.sync_enabled,
-			semantic_search_enabled = EXCLUDED.semantic_search_enabled,
 			auto_suggest_enabled = EXCLUDED.auto_suggest_enabled,
 			updated_at = EXCLUDED.updated_at,
 			updated_by = EXCLUDED.updated_by
@@ -90,7 +90,6 @@ func (s *SettingsStore) SaveSettings(ctx context.Context, settings *domain.Setti
 		settings.MaxResultsPerPage,
 		settings.SyncIntervalMinutes,
 		settings.SyncEnabled,
-		settings.SemanticSearchEnabled,
 		settings.AutoSuggestEnabled,
 		settings.UpdatedAt,
 		settings.UpdatedBy,

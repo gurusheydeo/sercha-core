@@ -65,9 +65,6 @@ func (s *settingsService) Update(ctx context.Context, updaterID string, req driv
 	if req.SyncEnabled != nil {
 		settings.SyncEnabled = *req.SyncEnabled
 	}
-	if req.SemanticSearchEnabled != nil {
-		settings.SemanticSearchEnabled = *req.SemanticSearchEnabled
-	}
 	if req.AutoSuggestEnabled != nil {
 		settings.AutoSuggestEnabled = *req.AutoSuggestEnabled
 	}

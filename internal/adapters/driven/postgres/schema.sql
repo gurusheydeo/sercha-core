@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS settings (
     max_results_per_page INT NOT NULL DEFAULT 100,
     sync_interval_minutes INT NOT NULL DEFAULT 60,
     sync_enabled BOOLEAN NOT NULL DEFAULT true,
-    semantic_search_enabled BOOLEAN NOT NULL DEFAULT true,
+    semantic_search_enabled BOOLEAN NOT NULL DEFAULT true, -- DEPRECATED: use capability_preferences table
     auto_suggest_enabled BOOLEAN NOT NULL DEFAULT true,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_by TEXT

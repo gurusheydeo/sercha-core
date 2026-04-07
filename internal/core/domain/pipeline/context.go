@@ -2,25 +2,35 @@ package pipeline
 
 import "time"
 
+// StagePreferences controls which stages are enabled based on user settings.
+type StagePreferences struct {
+	TextIndexingEnabled      bool
+	EmbeddingIndexingEnabled bool
+	BM25SearchEnabled        bool
+	VectorSearchEnabled      bool
+}
+
 // IndexingContext is the runtime context for indexing pipeline execution.
 type IndexingContext struct {
-	PipelineID   string         `json:"pipeline_id"`
-	ConnectorID  string         `json:"connector_id"`
-	SourceID     string         `json:"source_id"`
-	RunID        string         `json:"run_id"` // Unique execution ID
-	Capabilities *CapabilitySet `json:"-"`      // Available capabilities for this run
-	Metadata     map[string]any `json:"metadata"`
+	PipelineID   string            `json:"pipeline_id"`
+	ConnectorID  string            `json:"connector_id"`
+	SourceID     string            `json:"source_id"`
+	RunID        string            `json:"run_id"` // Unique execution ID
+	Capabilities *CapabilitySet    `json:"-"`      // Available capabilities for this run
+	Preferences  *StagePreferences `json:"-"`      // User capability preferences
+	Metadata     map[string]any    `json:"metadata"`
 }
 
 // SearchContext is the runtime context for search pipeline execution.
 type SearchContext struct {
-	PipelineID   string           `json:"pipeline_id"`
-	UserID       string           `json:"user_id"`   // Who is searching
-	SessionID    string           `json:"session_id"` // For tracking
-	RunID        string           `json:"run_id"`    // Unique execution ID
-	Capabilities *CapabilitySet   `json:"-"`         // Available capabilities
-	Filters      SearchFilters    `json:"filters"`
-	Pagination   PaginationConfig `json:"pagination"`
+	PipelineID   string            `json:"pipeline_id"`
+	UserID       string            `json:"user_id"`    // Who is searching
+	SessionID    string            `json:"session_id"` // For tracking
+	RunID        string            `json:"run_id"`     // Unique execution ID
+	Capabilities *CapabilitySet    `json:"-"`          // Available capabilities
+	Preferences  *StagePreferences `json:"-"`          // User capability preferences
+	Filters      SearchFilters     `json:"filters"`
+	Pagination   PaginationConfig  `json:"pagination"`
 }
 
 // SearchFilters contains user-applied search filters.

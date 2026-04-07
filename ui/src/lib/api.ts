@@ -108,6 +108,12 @@ export interface ProviderListItem {
   enabled: boolean;
 }
 
+export interface CapabilityStatus {
+  available: boolean;
+  enabled: boolean;
+  active: boolean;
+}
+
 export interface CapabilitiesResponse {
   oauth_providers: string[];
   ai_providers: {
@@ -115,8 +121,10 @@ export interface CapabilitiesResponse {
     llm: string[];
   };
   features: {
-    semantic_search: boolean;
-    vector_indexing: boolean;
+    text_indexing: CapabilityStatus;
+    embedding_indexing: CapabilityStatus;
+    bm25_search: CapabilityStatus;
+    vector_search: CapabilityStatus;
   };
   limits: {
     sync_min_interval: number;
@@ -307,7 +315,6 @@ export interface Settings {
   max_results_per_page: number;
   sync_interval_minutes: number;
   sync_enabled: boolean;
-  semantic_search_enabled: boolean;
   auto_suggest_enabled: boolean;
   sync_exclusions?: SyncExclusionSettings;
   updated_at: string;
@@ -319,7 +326,6 @@ export interface UpdateSettingsRequest {
   results_per_page?: number;
   sync_interval_minutes?: number;
   sync_enabled?: boolean;
-  semantic_search_enabled?: boolean;
   auto_suggest_enabled?: boolean;
   sync_exclusions?: SyncExclusionSettings;
 }
@@ -1133,5 +1139,49 @@ export async function triggerReindex(request?: TriggerReindexRequest): Promise<T
   return apiFetch<TriggerReindexResponse>("/api/v1/admin/reindex", {
     method: "POST",
     body: JSON.stringify(request || {}),
+  });
+}
+
+// ========== Capability Preferences API ==========
+
+// Capability represents system capability info
+export interface Capability {
+  id: string;
+  name: string;
+  phase: "indexing" | "search";
+  backend: string;
+  available: boolean;
+  health_status: "healthy" | "degraded" | "unavailable";
+  depends_on?: string;
+}
+
+// CapabilityPreferencesResponse represents per-team capability preferences
+export interface CapabilityPreferencesResponse {
+  team_id: string;
+  text_indexing_enabled: boolean;
+  embedding_indexing_enabled: boolean;
+  bm25_search_enabled: boolean;
+  vector_search_enabled: boolean;
+  updated_at: string;
+}
+
+// UpdateCapabilityPreferencesRequest for partial updates
+export interface UpdateCapabilityPreferencesRequest {
+  text_indexing_enabled?: boolean;
+  embedding_indexing_enabled?: boolean;
+  bm25_search_enabled?: boolean;
+  vector_search_enabled?: boolean;
+}
+
+export async function getCapabilityPreferences(): Promise<CapabilityPreferencesResponse> {
+  return apiFetch<CapabilityPreferencesResponse>("/api/v1/capability-preferences");
+}
+
+export async function updateCapabilityPreferences(
+  req: UpdateCapabilityPreferencesRequest
+): Promise<CapabilityPreferencesResponse> {
+  return apiFetch<CapabilityPreferencesResponse>("/api/v1/capability-preferences", {
+    method: "PUT",
+    body: JSON.stringify(req),
   });
 }

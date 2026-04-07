@@ -75,13 +75,12 @@ function SearchSettingsSection({
 }) {
   // Check if embedding is configured for semantic search features
   const isEmbeddingConfigured = aiSettings?.embedding?.is_configured ?? false;
-  // Schema upgrade required means embeddings are configured but Vespa schema isn't ready
+  // Schema upgrade required means embeddings are configured but search backend schema isn't ready
   const schemaUpgradeRequired = aiStatus?.schema_upgrade_required ?? false;
   // Can only use vector search if embedding is configured AND schema is ready
   const canUseVectorSearch = isEmbeddingConfigured && !schemaUpgradeRequired;
   const [searchMode, setSearchMode] = useState<"hybrid" | "text" | "semantic">("hybrid");
   const [resultsPerPage, setResultsPerPage] = useState(20);
-  const [semanticEnabled, setSemanticEnabled] = useState(true);
   const [autoSuggestEnabled, setAutoSuggestEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -92,22 +91,18 @@ function SearchSettingsSection({
     if (settings) {
       setSearchMode(settings.default_search_mode);
       setResultsPerPage(settings.results_per_page);
-      setSemanticEnabled(settings.semantic_search_enabled);
       setAutoSuggestEnabled(settings.auto_suggest_enabled);
     }
   }, [settings]);
 
-  // Reset search mode and semantic toggle if embedding is not configured or schema not ready
+  // Reset search mode if embedding is not configured or schema not ready
   useEffect(() => {
     if (!canUseVectorSearch) {
       if (searchMode === "hybrid" || searchMode === "semantic") {
         setSearchMode("text");
       }
-      if (semanticEnabled) {
-        setSemanticEnabled(false);
-      }
     }
-  }, [canUseVectorSearch, searchMode, semanticEnabled]);
+  }, [canUseVectorSearch, searchMode]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -118,7 +113,6 @@ function SearchSettingsSection({
       await onSave({
         default_search_mode: searchMode,
         results_per_page: resultsPerPage,
-        semantic_search_enabled: semanticEnabled,
         auto_suggest_enabled: autoSuggestEnabled,
       });
       setSaved(true);
@@ -202,32 +196,6 @@ function SearchSettingsSection({
         <div className="border-t border-sercha-mist pt-6">
           <h3 className="mb-4 text-sm font-medium text-sercha-ink-slate">Features</h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-sercha-ink-slate">Semantic Search</p>
-                <p className="text-xs text-sercha-fog-grey">
-                  Enable AI-powered semantic search capabilities
-                </p>
-                {schemaUpgradeRequired && semanticEnabled && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
-                    <AlertCircle className="h-3 w-3" />
-                    Schema upgrade required to enable this feature
-                  </p>
-                )}
-                {!isEmbeddingConfigured && !schemaUpgradeRequired && semanticEnabled && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
-                    <AlertCircle className="h-3 w-3" />
-                    Requires embedding provider in AI Settings
-                  </p>
-                )}
-              </div>
-              <Toggle
-                enabled={semanticEnabled}
-                onChange={setSemanticEnabled}
-                disabled={!canUseVectorSearch && !semanticEnabled}
-              />
-            </div>
-
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-sercha-ink-slate">Auto-Suggest</p>

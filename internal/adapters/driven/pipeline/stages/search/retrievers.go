@@ -33,7 +33,7 @@ func NewBM25RetrieverFactory() *BM25RetrieverFactory {
 			OutputShape: pipeline.ShapeCandidate,
 			Cardinality: pipeline.CardinalityOneToMany,
 			Capabilities: []pipeline.CapabilityRequirement{
-				{Type: pipeline.CapabilityVectorStore, Mode: pipeline.CapabilityRequired},
+				{Type: pipeline.CapabilitySearchEngine, Mode: pipeline.CapabilityRequired},
 			},
 			Version: "1.0.0",
 		},
@@ -45,14 +45,14 @@ func (f *BM25RetrieverFactory) Descriptor() pipeline.StageDescriptor   { return 
 func (f *BM25RetrieverFactory) Validate(config pipeline.StageConfig) error { return nil }
 
 func (f *BM25RetrieverFactory) Create(config pipeline.StageConfig, capabilities *pipeline.CapabilitySet) (pipelineport.Stage, error) {
-	inst, ok := capabilities.Get(pipeline.CapabilityVectorStore)
+	inst, ok := capabilities.Get(pipeline.CapabilitySearchEngine)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "vector_store capability not available"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "search_engine capability not available"}
 	}
 
 	searchEngine, ok := inst.Instance.(driven.SearchEngine)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid vector_store instance type"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid search_engine instance type"}
 	}
 
 	topK := DefaultTopK
@@ -118,7 +118,7 @@ func NewVectorRetrieverFactory() *VectorRetrieverFactory {
 			OutputShape: pipeline.ShapeCandidate,
 			Cardinality: pipeline.CardinalityOneToMany,
 			Capabilities: []pipeline.CapabilityRequirement{
-				{Type: pipeline.CapabilityVectorStore, Mode: pipeline.CapabilityRequired},
+				{Type: pipeline.CapabilitySearchEngine, Mode: pipeline.CapabilityRequired},
 				{Type: pipeline.CapabilityEmbedder, Mode: pipeline.CapabilityRequired},
 			},
 			Version: "1.0.0",
@@ -131,13 +131,13 @@ func (f *VectorRetrieverFactory) Descriptor() pipeline.StageDescriptor   { retur
 func (f *VectorRetrieverFactory) Validate(config pipeline.StageConfig) error { return nil }
 
 func (f *VectorRetrieverFactory) Create(config pipeline.StageConfig, capabilities *pipeline.CapabilitySet) (pipelineport.Stage, error) {
-	searchInst, ok := capabilities.Get(pipeline.CapabilityVectorStore)
+	searchInst, ok := capabilities.Get(pipeline.CapabilitySearchEngine)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "vector_store capability not available"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "search_engine capability not available"}
 	}
 	searchEngine, ok := searchInst.Instance.(driven.SearchEngine)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid vector_store instance type"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid search_engine instance type"}
 	}
 
 	embedInst, ok := capabilities.Get(pipeline.CapabilityEmbedder)
@@ -214,7 +214,7 @@ func NewHybridRetrieverFactory() *HybridRetrieverFactory {
 			OutputShape: pipeline.ShapeCandidate,
 			Cardinality: pipeline.CardinalityOneToMany,
 			Capabilities: []pipeline.CapabilityRequirement{
-				{Type: pipeline.CapabilityVectorStore, Mode: pipeline.CapabilityRequired},
+				{Type: pipeline.CapabilitySearchEngine, Mode: pipeline.CapabilityRequired},
 				{Type: pipeline.CapabilityEmbedder, Mode: pipeline.CapabilityRequired},
 			},
 			Version: "1.0.0",
@@ -227,13 +227,13 @@ func (f *HybridRetrieverFactory) Descriptor() pipeline.StageDescriptor   { retur
 func (f *HybridRetrieverFactory) Validate(config pipeline.StageConfig) error { return nil }
 
 func (f *HybridRetrieverFactory) Create(config pipeline.StageConfig, capabilities *pipeline.CapabilitySet) (pipelineport.Stage, error) {
-	searchInst, ok := capabilities.Get(pipeline.CapabilityVectorStore)
+	searchInst, ok := capabilities.Get(pipeline.CapabilitySearchEngine)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "vector_store capability not available"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "search_engine capability not available"}
 	}
 	searchEngine, ok := searchInst.Instance.(driven.SearchEngine)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid vector_store instance type"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid search_engine instance type"}
 	}
 
 	embedInst, ok := capabilities.Get(pipeline.CapabilityEmbedder)

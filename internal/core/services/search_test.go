@@ -61,8 +61,7 @@ func createTestSearchService(searchEngine *mocks.MockSearchEngine, documentStore
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-	return NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet).(*searchService)
+	return NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil).(*searchService)
 }
 
 func TestSearchService_Search(t *testing.T) {

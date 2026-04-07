@@ -16,6 +16,7 @@ const (
 // Settings holds team-wide configuration
 // Note: AI configuration (provider, model, API keys) is managed via AISettings
 // and the /settings/ai endpoint, not here.
+// Note: Semantic/vector search is now controlled via CapabilityPreferences.
 type Settings struct {
 	TeamID string `json:"team_id"`
 
@@ -29,8 +30,7 @@ type Settings struct {
 	SyncEnabled         bool `json:"sync_enabled"`
 
 	// Feature Flags
-	SemanticSearchEnabled bool `json:"semantic_search_enabled"`
-	AutoSuggestEnabled    bool `json:"auto_suggest_enabled"`
+	AutoSuggestEnabled bool `json:"auto_suggest_enabled"`
 
 	// Metadata
 	UpdatedAt time.Time `json:"updated_at"`
@@ -40,15 +40,14 @@ type Settings struct {
 // DefaultSettings returns sensible defaults for a new team
 func DefaultSettings(teamID string) *Settings {
 	return &Settings{
-		TeamID:                teamID,
-		DefaultSearchMode:     SearchModeHybrid,
-		ResultsPerPage:        20,
-		MaxResultsPerPage:     100,
-		SyncIntervalMinutes:   60,
-		SyncEnabled:           true,
-		SemanticSearchEnabled: true,
-		AutoSuggestEnabled:    true,
-		UpdatedAt:             time.Now(),
+		TeamID:              teamID,
+		DefaultSearchMode:   SearchModeHybrid,
+		ResultsPerPage:      20,
+		MaxResultsPerPage:   100,
+		SyncIntervalMinutes: 60,
+		SyncEnabled:         true,
+		AutoSuggestEnabled:  true,
+		UpdatedAt:           time.Now(),
 	}
 }
 

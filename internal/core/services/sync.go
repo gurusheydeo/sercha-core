@@ -37,6 +37,7 @@ type SyncOrchestrator struct {
 	logger           *slog.Logger
 	indexingExecutor pipelineport.IndexingExecutor // Required pipeline executor
 	capabilitySet    *pipeline.CapabilitySet       // Capabilities for pipeline
+	capabilityStore  driven.CapabilityStore        // For fetching capability preferences
 }
 
 // SyncOrchestratorConfig holds dependencies for SyncOrchestrator.
@@ -52,6 +53,7 @@ type SyncOrchestratorConfig struct {
 	Logger           *slog.Logger
 	IndexingExecutor pipelineport.IndexingExecutor // Required pipeline executor
 	CapabilitySet    *pipeline.CapabilitySet       // Capabilities for pipeline
+	CapabilityStore  driven.CapabilityStore        // For fetching capability preferences
 }
 
 // NewSyncOrchestrator creates a new sync orchestrator.
@@ -78,6 +80,7 @@ func NewSyncOrchestrator(cfg SyncOrchestratorConfig) *SyncOrchestrator {
 		logger:           logger,
 		indexingExecutor: cfg.IndexingExecutor,
 		capabilitySet:    cfg.CapabilitySet,
+		capabilityStore:  cfg.CapabilityStore,
 	}
 }
 
@@ -446,6 +449,20 @@ func (o *SyncOrchestrator) processWithPipeline(
 		SourceID:     source.ID,
 		Capabilities: o.capabilitySet,
 		Metadata:     make(map[string]any),
+	}
+
+	// Fetch capability preferences
+	if o.capabilityStore != nil {
+		// Use "default" teamID - in production, this should come from source metadata
+		prefs, _ := o.capabilityStore.GetPreferences(ctx, "default")
+		if prefs != nil {
+			pipelineContext.Preferences = &pipeline.StagePreferences{
+				TextIndexingEnabled:      prefs.TextIndexingEnabled,
+				EmbeddingIndexingEnabled: prefs.EmbeddingIndexingEnabled,
+				BM25SearchEnabled:        prefs.BM25SearchEnabled,
+				VectorSearchEnabled:      prefs.VectorSearchEnabled,
+			}
+		}
 	}
 
 	// Execute pipeline

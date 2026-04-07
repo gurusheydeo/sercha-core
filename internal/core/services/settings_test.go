@@ -188,20 +188,19 @@ func TestSettingsService_Update_AllFields(t *testing.T) {
 	svc := NewSettingsService(store, &mockAIFactory{}, configProvider, services, "team-1")
 
 	// Note: AI configuration (provider, model, endpoint) is now managed via UpdateAISettings
+	// Note: SemanticSearchEnabled is now managed via CapabilityPreferences
 	searchMode := domain.SearchModeHybrid
 	resultsPerPage := 30
 	syncInterval := 120
 	syncEnabled := false
-	semanticEnabled := true
 	autoSuggest := true
 
 	req := driving.UpdateSettingsRequest{
-		DefaultSearchMode:     &searchMode,
-		ResultsPerPage:        &resultsPerPage,
-		SyncIntervalMinutes:   &syncInterval,
-		SyncEnabled:           &syncEnabled,
-		SemanticSearchEnabled: &semanticEnabled,
-		AutoSuggestEnabled:    &autoSuggest,
+		DefaultSearchMode:   &searchMode,
+		ResultsPerPage:      &resultsPerPage,
+		SyncIntervalMinutes: &syncInterval,
+		SyncEnabled:         &syncEnabled,
+		AutoSuggestEnabled:  &autoSuggest,
 	}
 
 	settings, err := svc.Update(context.Background(), "admin", req)

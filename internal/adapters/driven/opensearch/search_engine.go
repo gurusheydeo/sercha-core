@@ -300,19 +300,18 @@ func (s *SearchEngine) Count(ctx context.Context) (int64, error) {
 
 // ensureIndex creates the index with the correct mapping if it doesn't exist
 func (s *SearchEngine) ensureIndex(ctx context.Context) error {
-	// Check if index exists
-	req := opensearchapi.IndicesExistsReq{
+	// Check if index exists using low-level Do to avoid v4 client treating 404 as error.
+	// IndicesExists returns 200 if the index exists, 404 if it doesn't — both are valid.
+	existsResp, err := s.client.Client.Do(ctx, opensearchapi.IndicesExistsReq{
 		Indices: []string{s.indexName},
-	}
-
-	resp, err := s.client.Indices.Exists(ctx, req)
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to check index existence: %w", err)
 	}
-	defer resp.Body.Close()
+	defer existsResp.Body.Close()
 
 	// Index exists (200)
-	if resp.StatusCode == 200 {
+	if existsResp.StatusCode == 200 {
 		return nil
 	}
 

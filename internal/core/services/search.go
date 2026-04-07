@@ -17,11 +17,11 @@ var _ driving.SearchService = (*searchService)(nil)
 
 // searchService implements the SearchService interface
 type searchService struct {
-	searchEngine   driven.SearchEngine
-	documentStore  driven.DocumentStore
-	services       *runtime.Services // Dynamic AI services
-	searchExecutor pipelineport.SearchExecutor // Required pipeline executor
-	capabilitySet  *pipeline.CapabilitySet     // Capabilities for pipeline
+	searchEngine    driven.SearchEngine
+	documentStore   driven.DocumentStore
+	services        *runtime.Services           // Dynamic AI services
+	searchExecutor  pipelineport.SearchExecutor // Required pipeline executor
+	capabilityStore driven.CapabilityStore      // For fetching capability preferences
 }
 
 // NewSearchService creates a new SearchService
@@ -31,7 +31,7 @@ func NewSearchService(
 	documentStore driven.DocumentStore,
 	services *runtime.Services,
 	searchExecutor pipelineport.SearchExecutor, // Required pipeline executor
-	capabilitySet *pipeline.CapabilitySet, // Required capabilities
+	capabilityStore driven.CapabilityStore, // For fetching capability preferences
 ) driving.SearchService {
 	// SearchExecutor is now required
 	if searchExecutor == nil {
@@ -39,11 +39,11 @@ func NewSearchService(
 	}
 
 	return &searchService{
-		searchEngine:   searchEngine,
-		documentStore:  documentStore,
-		services:       services,
-		searchExecutor: searchExecutor,
-		capabilitySet:  capabilitySet,
+		searchEngine:    searchEngine,
+		documentStore:   documentStore,
+		services:        services,
+		searchExecutor:  searchExecutor,
+		capabilityStore: capabilityStore,
 	}
 }
 
@@ -85,13 +85,26 @@ func (s *searchService) searchWithPipeline(
 
 	// Build pipeline context
 	pipelineContext := &pipeline.SearchContext{
-		PipelineID:   "default-search",
-		Capabilities: s.capabilitySet,
-		Filters:      pipelineInput.Filters,
+		PipelineID: "default-search",
+		Filters:    pipelineInput.Filters,
 		Pagination: pipeline.PaginationConfig{
 			Offset: opts.Offset,
 			Limit:  opts.Limit,
 		},
+	}
+
+	// Fetch capability preferences
+	// Note: teamID should come from context, use "default" for now
+	if s.capabilityStore != nil {
+		prefs, _ := s.capabilityStore.GetPreferences(ctx, "default")
+		if prefs != nil {
+			pipelineContext.Preferences = &pipeline.StagePreferences{
+				TextIndexingEnabled:      prefs.TextIndexingEnabled,
+				EmbeddingIndexingEnabled: prefs.EmbeddingIndexingEnabled,
+				BM25SearchEnabled:        prefs.BM25SearchEnabled,
+				VectorSearchEnabled:      prefs.VectorSearchEnabled,
+			}
+		}
 	}
 
 	// Execute pipeline

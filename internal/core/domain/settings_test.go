@@ -48,9 +48,6 @@ func TestDefaultSettings(t *testing.T) {
 	if !settings.SyncEnabled {
 		t.Error("expected SyncEnabled to be true")
 	}
-	if !settings.SemanticSearchEnabled {
-		t.Error("expected SemanticSearchEnabled to be true")
-	}
 	if !settings.AutoSuggestEnabled {
 		t.Error("expected AutoSuggestEnabled to be true")
 	}
@@ -61,15 +58,15 @@ func TestDefaultSettings(t *testing.T) {
 
 func TestSettings(t *testing.T) {
 	// Note: AI configuration (provider, model, endpoint) is now in AISettings
+	// Note: Semantic/vector search is now controlled via CapabilityPreferences
 	settings := &Settings{
-		TeamID:                "team-123",
-		DefaultSearchMode:     SearchModeTextOnly,
-		ResultsPerPage:        10,
-		MaxResultsPerPage:     50,
-		SyncIntervalMinutes:   30,
-		SyncEnabled:           false,
-		SemanticSearchEnabled: false,
-		AutoSuggestEnabled:    true,
+		TeamID:              "team-123",
+		DefaultSearchMode:   SearchModeTextOnly,
+		ResultsPerPage:      10,
+		MaxResultsPerPage:   50,
+		SyncIntervalMinutes: 30,
+		SyncEnabled:         false,
+		AutoSuggestEnabled:  true,
 	}
 
 	if settings.DefaultSearchMode != SearchModeTextOnly {
@@ -77,9 +74,6 @@ func TestSettings(t *testing.T) {
 	}
 	if settings.SyncEnabled {
 		t.Error("expected SyncEnabled to be false")
-	}
-	if settings.SemanticSearchEnabled {
-		t.Error("expected SemanticSearchEnabled to be false")
 	}
 	if settings.ResultsPerPage != 10 {
 		t.Errorf("expected ResultsPerPage 10, got %d", settings.ResultsPerPage)
