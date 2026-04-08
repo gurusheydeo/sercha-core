@@ -139,10 +139,10 @@ export default function SearchHomePage() {
   }, []);
 
   // Derive mode from toggles for URL params
-  // 00 = text, 10 = vector (semantic), 01 = expansion only (text+), 11 = hybrid
+  // Vector ON = hybrid (BM25 + vector via RRF), Vector OFF = text (BM25 only)
+  // Query expansion is an additive feature, not a mode selector
   const getMode = () => {
-    if (vectorEnabled && llmExpansionEnabled) return "hybrid";
-    if (vectorEnabled) return "semantic";
+    if (vectorEnabled) return "hybrid";
     return "text";
   };
 

@@ -34,7 +34,7 @@ func TestMockVectorIndex_Index(t *testing.T) {
 	ctx := context.Background()
 
 	embedding := []float32{0.1, 0.2, 0.3}
-	err := mock.Index(ctx, "test-id", embedding)
+	err := mock.Index(ctx, "test-id", "doc-1", embedding)
 	if err != nil {
 		t.Errorf("Index() error = %v", err)
 	}
@@ -61,7 +61,9 @@ func TestMockVectorIndex_IndexBatch(t *testing.T) {
 		{0.7, 0.8, 0.9},
 	}
 
-	err := mock.IndexBatch(ctx, ids, embeddings)
+	docIDs := []string{"doc1", "doc2", "doc3"}
+	contents := []string{"content1", "content2", "content3"}
+	err := mock.IndexBatch(ctx, ids, docIDs, contents, embeddings)
 	if err != nil {
 		t.Errorf("IndexBatch() error = %v", err)
 	}
@@ -95,8 +97,10 @@ func TestMockVectorIndex_IndexBatch_UnequalLength(t *testing.T) {
 		{0.1, 0.2, 0.3},
 	}
 
+	docIDs := []string{"doc1", "doc2", "doc3"}
+	contents := []string{"content1", "content2", "content3"}
 	// The mock silently handles this - it only stores what it can
-	err := mock.IndexBatch(ctx, ids, embeddings)
+	err := mock.IndexBatch(ctx, ids, docIDs, contents, embeddings)
 	if err != nil {
 		t.Errorf("IndexBatch() error = %v", err)
 	}
@@ -113,9 +117,9 @@ func TestMockVectorIndex_Search(t *testing.T) {
 	ctx := context.Background()
 
 	// Index some embeddings first
-	_ = mock.Index(ctx, "id1", []float32{0.1, 0.2, 0.3})
-	_ = mock.Index(ctx, "id2", []float32{0.4, 0.5, 0.6})
-	_ = mock.Index(ctx, "id3", []float32{0.7, 0.8, 0.9})
+	_ = mock.Index(ctx, "id1", "doc1", []float32{0.1, 0.2, 0.3})
+	_ = mock.Index(ctx, "id2", "doc1", []float32{0.4, 0.5, 0.6})
+	_ = mock.Index(ctx, "id3", "doc2", []float32{0.7, 0.8, 0.9})
 
 	// Search
 	queryEmbedding := []float32{0.1, 0.2, 0.3}
@@ -161,8 +165,8 @@ func TestMockVectorIndex_Search_KLargerThanIndex(t *testing.T) {
 	mock := NewMockVectorIndex()
 	ctx := context.Background()
 
-	_ = mock.Index(ctx, "id1", []float32{0.1})
-	_ = mock.Index(ctx, "id2", []float32{0.2})
+	_ = mock.Index(ctx, "id1", "doc1", []float32{0.1})
+	_ = mock.Index(ctx, "id2", "doc1", []float32{0.2})
 
 	ids, distances, err := mock.Search(ctx, []float32{0.1}, 100)
 	if err != nil {
@@ -183,7 +187,7 @@ func TestMockVectorIndex_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Index an embedding
-	_ = mock.Index(ctx, "test-id", []float32{0.1, 0.2, 0.3})
+	_ = mock.Index(ctx, "test-id", "doc1", []float32{0.1, 0.2, 0.3})
 	if mock.Count() != 1 {
 		t.Fatalf("Count() after Index = %d, want 1", mock.Count())
 	}
@@ -222,9 +226,9 @@ func TestMockVectorIndex_DeleteBatch(t *testing.T) {
 	ctx := context.Background()
 
 	// Index some embeddings
-	_ = mock.Index(ctx, "id1", []float32{0.1})
-	_ = mock.Index(ctx, "id2", []float32{0.2})
-	_ = mock.Index(ctx, "id3", []float32{0.3})
+	_ = mock.Index(ctx, "id1", "doc1", []float32{0.1})
+	_ = mock.Index(ctx, "id2", "doc1", []float32{0.2})
+	_ = mock.Index(ctx, "id3", "doc2", []float32{0.3})
 	if mock.Count() != 3 {
 		t.Fatalf("Count() after Index = %d, want 3", mock.Count())
 	}
@@ -250,7 +254,7 @@ func TestMockVectorIndex_DeleteBatch_Empty(t *testing.T) {
 	mock := NewMockVectorIndex()
 	ctx := context.Background()
 
-	_ = mock.Index(ctx, "id1", []float32{0.1})
+	_ = mock.Index(ctx, "id1", "doc1", []float32{0.1})
 
 	err := mock.DeleteBatch(ctx, []string{})
 	if err != nil {
@@ -280,8 +284,8 @@ func TestMockVectorIndex_Reset(t *testing.T) {
 	ctx := context.Background()
 
 	// Index some embeddings
-	_ = mock.Index(ctx, "id1", []float32{0.1})
-	_ = mock.Index(ctx, "id2", []float32{0.2})
+	_ = mock.Index(ctx, "id1", "doc1", []float32{0.1})
+	_ = mock.Index(ctx, "id2", "doc1", []float32{0.2})
 	if mock.Count() != 2 {
 		t.Fatalf("Count() after Index = %d, want 2", mock.Count())
 	}
@@ -308,7 +312,7 @@ func TestMockVectorIndex_GetEmbedding(t *testing.T) {
 
 	// Index and retrieve
 	embedding := []float32{0.1, 0.2, 0.3}
-	_ = mock.Index(ctx, "test-id", embedding)
+	_ = mock.Index(ctx, "test-id", "doc1", embedding)
 
 	retrieved, ok := mock.GetEmbedding("test-id")
 	if !ok {
@@ -333,12 +337,12 @@ func TestMockVectorIndex_Count(t *testing.T) {
 		t.Errorf("Count() on new mock = %d, want 0", mock.Count())
 	}
 
-	_ = mock.Index(ctx, "id1", []float32{0.1})
+	_ = mock.Index(ctx, "id1", "doc1", []float32{0.1})
 	if mock.Count() != 1 {
 		t.Errorf("Count() after 1 Index = %d, want 1", mock.Count())
 	}
 
-	_ = mock.Index(ctx, "id2", []float32{0.2})
+	_ = mock.Index(ctx, "id2", "doc1", []float32{0.2})
 	if mock.Count() != 2 {
 		t.Errorf("Count() after 2 Index = %d, want 2", mock.Count())
 	}
@@ -360,7 +364,7 @@ func TestMockVectorIndex_ConcurrentAccess(t *testing.T) {
 	// Writer goroutine 1
 	go func() {
 		for i := 0; i < 100; i++ {
-			_ = mock.Index(ctx, "id1", []float32{float32(i)})
+			_ = mock.Index(ctx, "id1", "doc1", []float32{float32(i)})
 		}
 		done <- true
 	}()
@@ -368,7 +372,7 @@ func TestMockVectorIndex_ConcurrentAccess(t *testing.T) {
 	// Writer goroutine 2
 	go func() {
 		for i := 0; i < 100; i++ {
-			_ = mock.Index(ctx, "id2", []float32{float32(i)})
+			_ = mock.Index(ctx, "id2", "doc1", []float32{float32(i)})
 		}
 		done <- true
 	}()
@@ -397,10 +401,10 @@ func TestMockVectorIndex_IndexOverwrite(t *testing.T) {
 	ctx := context.Background()
 
 	// Index first embedding
-	_ = mock.Index(ctx, "test-id", []float32{0.1, 0.2})
+	_ = mock.Index(ctx, "test-id", "doc1", []float32{0.1, 0.2})
 
 	// Overwrite with new embedding
-	_ = mock.Index(ctx, "test-id", []float32{0.3, 0.4, 0.5})
+	_ = mock.Index(ctx, "test-id", "doc1", []float32{0.3, 0.4, 0.5})
 
 	// Count should still be 1
 	if mock.Count() != 1 {

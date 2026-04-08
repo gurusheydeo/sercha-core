@@ -82,7 +82,7 @@ func (q *Queue) EnqueueBatch(ctx context.Context, tasks []*domain.Task) error {
 	if err != nil {
 		return fmt.Errorf("prepare statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	for _, task := range tasks {
 		payload, err := json.Marshal(task.Payload)
@@ -412,7 +412,7 @@ func (q *Queue) ListTasks(ctx context.Context, filter driven.TaskFilter) ([]*dom
 	if err != nil {
 		return nil, fmt.Errorf("query tasks: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tasks []*domain.Task
 	for rows.Next() {
@@ -531,7 +531,7 @@ func (q *Queue) Stats(ctx context.Context) (*driven.QueueStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query stats: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var status string
@@ -658,7 +658,7 @@ func (q *Queue) GetJobStats(ctx context.Context, teamID string, period domain.An
 	if err != nil {
 		return nil, fmt.Errorf("query jobs by type: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var taskType string

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors"
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
 	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
@@ -180,59 +182,85 @@ func (c *Connector) fetchPRChanges(ctx context.Context) ([]*domain.Change, error
 	return allChanges, nil
 }
 
-// fetchFileChanges fetches file changes from the repository.
+// fetchFileChanges fetches file changes from the repository with concurrent content fetching.
 func (c *Connector) fetchFileChanges(ctx context.Context) ([]*domain.Change, error) {
-	// Get repository info for default branch
 	repoInfo, err := c.client.GetRepository(ctx, c.owner, c.repo)
 	if err != nil {
 		return nil, fmt.Errorf("get repository: %w", err)
 	}
 
-	// Get tree for default branch
 	tree, err := c.client.GetTree(ctx, c.owner, c.repo, repoInfo.DefaultBranch)
 	if err != nil {
 		return nil, fmt.Errorf("get tree: %w", err)
 	}
 
-	var changes []*domain.Change
+	// Filter tree entries before fetching content
+	var toFetch []*TreeEntry
 	for _, entry := range tree {
-		// Skip if file is too large
 		if entry.Size > c.config.MaxFileSize {
 			continue
 		}
-
-		// Check if file should be included
 		if !c.shouldIncludeFile(entry.Path) {
 			continue
 		}
-
-		// Fetch file content
-		content, err := c.client.GetFileContent(ctx, c.owner, c.repo, entry.Path)
-		if err != nil {
-			// Skip files we can't fetch
-			continue
-		}
-
-		// Decode base64 content
-		decodedContent := ""
-		if content.Encoding == "base64" {
-			decoded, err := base64.StdEncoding.DecodeString(content.Content)
-			if err == nil {
-				decodedContent = string(decoded)
-			}
-		} else {
-			decodedContent = content.Content
-		}
-
-		change := &domain.Change{
-			Type:       domain.ChangeTypeAdded,
-			ExternalID: fmt.Sprintf("file-%s", entry.SHA),
-			Document:   c.fileToDocument(entry, content),
-			Content:    decodedContent,
-		}
-		changes = append(changes, change)
+		toFetch = append(toFetch, entry)
 	}
 
+	concurrency := c.config.Concurrency
+	if concurrency <= 0 {
+		concurrency = 10
+	}
+
+	var (
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+		sem     = make(chan struct{}, concurrency)
+		changes []*domain.Change
+	)
+
+	for _, entry := range toFetch {
+		select {
+		case <-ctx.Done():
+			return changes, ctx.Err()
+		default:
+		}
+
+		wg.Add(1)
+		sem <- struct{}{}
+
+		go func(entry *TreeEntry) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			content, err := c.client.GetFileContent(ctx, c.owner, c.repo, entry.Path)
+			if err != nil {
+				return
+			}
+
+			decodedContent := ""
+			if content.Encoding == "base64" {
+				decoded, err := base64.StdEncoding.DecodeString(content.Content)
+				if err == nil {
+					decodedContent = string(decoded)
+				}
+			} else {
+				decodedContent = content.Content
+			}
+
+			change := &domain.Change{
+				Type:       domain.ChangeTypeAdded,
+				ExternalID: fmt.Sprintf("file-%s", entry.SHA),
+				Document:   c.fileToDocument(entry, content),
+				Content:    decodedContent,
+			}
+
+			mu.Lock()
+			changes = append(changes, change)
+			mu.Unlock()
+		}(entry)
+	}
+
+	wg.Wait()
 	return changes, nil
 }
 
@@ -359,7 +387,7 @@ func (c *Connector) prToDocument(pr *PullRequest) *domain.Document {
 
 // fileToDocument converts a GitHub file to a domain document.
 func (c *Connector) fileToDocument(entry *TreeEntry, content *FileContent) *domain.Document {
-	mimeType := c.guessMimeType(entry.Path)
+	mimeType := connectors.GuessMimeType(entry.Path)
 
 	return &domain.Document{
 		Title:    entry.Path,
@@ -374,42 +402,6 @@ func (c *Connector) fileToDocument(entry *TreeEntry, content *FileContent) *doma
 	}
 }
 
-// guessMimeType guesses the MIME type from file extension.
-func (c *Connector) guessMimeType(path string) string {
-	ext := strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".md", ".markdown":
-		return "text/markdown"
-	case ".txt":
-		return "text/plain"
-	case ".go":
-		return "text/x-go"
-	case ".py":
-		return "text/x-python"
-	case ".js":
-		return "application/javascript"
-	case ".ts":
-		return "application/typescript"
-	case ".json":
-		return "application/json"
-	case ".yaml", ".yml":
-		return "text/yaml"
-	case ".html", ".htm":
-		return "text/html"
-	case ".css":
-		return "text/css"
-	case ".rs":
-		return "text/x-rust"
-	case ".java":
-		return "text/x-java"
-	case ".rb":
-		return "text/x-ruby"
-	case ".sh", ".bash":
-		return "text/x-shellscript"
-	default:
-		return "text/plain"
-	}
-}
 
 // formatIssueContent formats issue content for indexing.
 func (c *Connector) formatIssueContent(issue *Issue) string {
@@ -443,7 +435,7 @@ func (c *Connector) formatPRContent(pr *PullRequest) string {
 	sb.WriteString(pr.Title)
 	sb.WriteString("\n\n")
 
-	sb.WriteString(fmt.Sprintf("Branch: %s → %s\n\n", pr.Head.Ref, pr.Base.Ref))
+	fmt.Fprintf(&sb, "Branch: %s → %s\n\n", pr.Head.Ref, pr.Base.Ref)
 
 	if pr.Body != "" {
 		sb.WriteString(pr.Body)

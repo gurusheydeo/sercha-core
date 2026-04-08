@@ -8,13 +8,13 @@ import (
 
 // UpdateSettingsRequest represents a request to update settings
 // Note: AI configuration is managed via UpdateAISettingsRequest and /settings/ai endpoint
+// Note: Semantic/vector search is now controlled via CapabilityPreferences
 type UpdateSettingsRequest struct {
-	DefaultSearchMode     *domain.SearchMode `json:"default_search_mode,omitempty"`
-	ResultsPerPage        *int               `json:"results_per_page,omitempty"`
-	SyncIntervalMinutes   *int               `json:"sync_interval_minutes,omitempty"`
-	SyncEnabled           *bool              `json:"sync_enabled,omitempty"`
-	SemanticSearchEnabled *bool              `json:"semantic_search_enabled,omitempty"`
-	AutoSuggestEnabled    *bool              `json:"auto_suggest_enabled,omitempty"`
+	DefaultSearchMode   *domain.SearchMode `json:"default_search_mode,omitempty"`
+	ResultsPerPage      *int               `json:"results_per_page,omitempty"`
+	SyncIntervalMinutes *int               `json:"sync_interval_minutes,omitempty"`
+	SyncEnabled         *bool              `json:"sync_enabled,omitempty"`
+	AutoSuggestEnabled  *bool              `json:"auto_suggest_enabled,omitempty"`
 }
 
 // SettingsService manages team-wide settings (admin only)
@@ -40,6 +40,9 @@ type SettingsService interface {
 
 	// GetAIProviders returns static metadata about available AI providers
 	GetAIProviders(ctx context.Context) (*AIProvidersResponse, error)
+
+	// RestoreAIServices restores AI services from persisted settings on startup.
+	RestoreAIServices(ctx context.Context) error
 }
 
 // UpdateAISettingsRequest represents a request to update AI settings

@@ -38,6 +38,7 @@ import (
 	"github.com/sercha-oss/sercha-core/internal/adapters/driven/opensearch"
 	"github.com/sercha-oss/sercha-core/internal/adapters/driven/pgvector"
 	pipelineexec "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/executor"
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/providers"
 	pipelinereg "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/registry"
 	indexingstages "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/indexing"
 	searchstages "github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/search"
@@ -69,29 +70,6 @@ func (r *redisPinger) Ping(ctx context.Context) error {
 	return r.client.Ping(ctx).Err()
 }
 
-// capabilityProvider wraps a service as a capability provider
-type capabilityProvider struct {
-	capType         pipeline.CapabilityType
-	id              string
-	instance        any
-	avail           func() bool
-	instanceResolver func() any // Optional: resolve instance dynamically
-}
-
-func (p *capabilityProvider) Type() pipeline.CapabilityType { return p.capType }
-func (p *capabilityProvider) ID() string                    { return p.id }
-func (p *capabilityProvider) Instance() any {
-	if p.instanceResolver != nil {
-		return p.instanceResolver()
-	}
-	return p.instance
-}
-func (p *capabilityProvider) Available() bool {
-	if p.avail == nil {
-		return p.Instance() != nil
-	}
-	return p.avail()
-}
 
 func main() {
 	// Get run mode: environment variable takes precedence, command arg as fallback
@@ -144,7 +122,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Initialize schema (idempotent)
 	if err := db.InitSchema(ctx); err != nil {
@@ -164,7 +142,7 @@ func main() {
 		if err := redisClient.Ping(ctx).Err(); err != nil {
 			log.Fatalf("Failed to connect to Redis: %v", err)
 		}
-		defer redisClient.Close()
+		defer func() { _ = redisClient.Close() }()
 		log.Println("Redis connected")
 	}
 
@@ -183,6 +161,7 @@ func main() {
 			log.Printf("Warning: OpenSearch health check failed: %v", err)
 		} else {
 			searchEngine = osEngine
+			cfg.SearchEngineAvailable = true
 			log.Printf("OpenSearch connected: %s", cfg.OpenSearchURL)
 		}
 	} else {
@@ -208,7 +187,12 @@ func main() {
 			pgvectorAdapter.Close()
 			pgvectorAdapter = nil
 		} else {
+			// Ensure the embeddings table exists
+			if err := pgvectorAdapter.EnsureTable(ctx); err != nil {
+				log.Fatalf("Failed to ensure pgvector embeddings table: %v", err)
+			}
 			vectorIndex = pgvectorAdapter
+			cfg.VectorStoreAvailable = true
 			log.Printf("pgvector connected: %s (dimensions: %d)", cfg.PgvectorURL, cfg.PgvectorDimensions)
 		}
 	} else {
@@ -231,7 +215,7 @@ func main() {
 	syncStore := postgres.NewSyncStateStore(db)
 	settingsStore := postgres.NewSettingsStore(db)
 	schedulerStore := postgres.NewSchedulerStore(db)
-	// capabilityStore := postgres.NewCapabilityStore(db) // TODO: Use in capability management service (#30)
+	capabilityStore := postgres.NewCapabilityStore(db)
 	searchQueryRepo := postgres.NewSearchQueryRepository(db)
 
 	// ===== Session Store (Redis if available, otherwise PostgreSQL) =====
@@ -353,8 +337,11 @@ func main() {
 	if err := stageRegistry.Register(indexingstages.NewEmbedderFactory()); err != nil {
 		log.Fatalf("Failed to register embedder stage: %v", err)
 	}
-	if err := stageRegistry.Register(indexingstages.NewLoaderFactory()); err != nil {
-		log.Fatalf("Failed to register loader stage: %v", err)
+	if err := stageRegistry.Register(indexingstages.NewDocLoaderFactory()); err != nil {
+		log.Fatalf("Failed to register doc-loader stage: %v", err)
+	}
+	if err := stageRegistry.Register(indexingstages.NewVectorLoaderFactory()); err != nil {
+		log.Fatalf("Failed to register vector-loader stage: %v", err)
 	}
 
 	// Register search stage factories
@@ -380,26 +367,39 @@ func main() {
 	// Register capability providers
 	// Embedder - dynamically available via runtimeServices
 	// The instance is resolved at runtime when needed
-	if err := capabilityRegistry.Register(&capabilityProvider{
-		capType: pipeline.CapabilityEmbedder,
-		id:      "default",
-		instanceResolver: func() any {
+	if err := capabilityRegistry.Register(&providers.CapabilityProvider{
+		CapType:    pipeline.CapabilityEmbedder,
+		ProviderID: "default",
+		InstanceResolver: func() any {
 			return runtimeServices.EmbeddingService()
 		},
-		avail: func() bool {
+		AvailFn: func() bool {
 			return runtimeServices.EmbeddingService() != nil
 		},
 	}); err != nil {
 		log.Fatalf("Failed to register embedder capability: %v", err)
 	}
 
+	// SearchEngine - OpenSearch if configured
+	if searchEngine != nil {
+		if err := capabilityRegistry.Register(&providers.CapabilityProvider{
+			CapType:    pipeline.CapabilitySearchEngine,
+			ProviderID: "opensearch",
+			Inst:       searchEngine,
+			AvailFn:    func() bool { return true },
+		}); err != nil {
+			log.Fatalf("Failed to register opensearch capability: %v", err)
+		}
+		log.Println("Registered opensearch as search_engine capability")
+	}
+
 	// VectorStore - pgvector if configured
 	if vectorIndex != nil {
-		if err := capabilityRegistry.Register(&capabilityProvider{
-			capType:  pipeline.CapabilityVectorStore,
-			id:       "pgvector",
-			instance: vectorIndex,
-			avail: func() bool {
+		if err := capabilityRegistry.Register(&providers.CapabilityProvider{
+			CapType:    pipeline.CapabilityVectorStore,
+			ProviderID: "pgvector",
+			Inst:       vectorIndex,
+			AvailFn: func() bool {
 				return vectorIndex != nil
 			},
 		}); err != nil {
@@ -414,9 +414,10 @@ func main() {
 		Name: "Default Indexing Pipeline",
 		Type: pipeline.PipelineTypeIndexing,
 		Stages: []pipeline.StageConfig{
-			{StageID: "chunker", Enabled: true, Parameters: map[string]any{"chunk_size": 512}},
+			{StageID: "doc-loader", Enabled: true},
+			{StageID: "chunker", Enabled: true, Parameters: map[string]any{"chunk_size": 1024, "chunk_overlap": 100}},
 			{StageID: "embedder", Enabled: true},
-			{StageID: "loader", Enabled: true},
+			{StageID: "vector-loader", Enabled: true},
 		},
 	}
 	if err := pipelineRegistry.Register(indexingPipeline); err != nil {
@@ -426,29 +427,32 @@ func main() {
 		log.Fatalf("Failed to set default indexing pipeline: %v", err)
 	}
 
-	// Register default search pipeline (BM25-only, no embedding required)
-	searchPipelineBM25 := pipeline.PipelineDefinition{
-		ID:   "default-search-bm25",
-		Name: "Default Search Pipeline (BM25)",
+	// Register default search pipeline with all retriever variants.
+	// applyPreferences enables exactly one retriever based on the requested search mode.
+	searchPipeline := pipeline.PipelineDefinition{
+		ID:   "default-search",
+		Name: "Default Search Pipeline",
 		Type: pipeline.PipelineTypeSearch,
 		Stages: []pipeline.StageConfig{
 			{StageID: "query-parser", Enabled: true},
 			{StageID: "bm25-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
+			{StageID: "vector-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
+			{StageID: "hybrid-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
 			{StageID: "ranker", Enabled: true, Parameters: map[string]any{"limit": 20}},
 			{StageID: "presenter", Enabled: true, Parameters: map[string]any{"snippet_length": 200}},
 		},
 	}
-	if err := pipelineRegistry.Register(searchPipelineBM25); err != nil {
+	if err := pipelineRegistry.Register(searchPipeline); err != nil {
 		log.Fatalf("Failed to register search pipeline: %v", err)
 	}
-	if err := pipelineRegistry.SetDefault(pipeline.PipelineTypeSearch, "default-search-bm25"); err != nil {
+	if err := pipelineRegistry.SetDefault(pipeline.PipelineTypeSearch, "default-search"); err != nil {
 		log.Fatalf("Failed to set default search pipeline: %v", err)
 	}
 
 	// Create pipeline builder and executors
 	pipelineBuilder := pipelineexec.NewPipelineBuilder(stageRegistry)
-	indexingExecutor := pipelineexec.NewIndexingExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry, nil)
-	searchExecutor := pipelineexec.NewSearchExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry)
+	indexingExecutor := pipelineexec.NewIndexingExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry, nil, stageRegistry)
+	searchExecutor := pipelineexec.NewSearchExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry, stageRegistry)
 
 	log.Println("Pipeline infrastructure initialized")
 
@@ -457,15 +461,30 @@ func main() {
 	userService := services.NewUserService(userStore, sessionStore, authAdapter, teamID)
 	sourceService := services.NewSourceService(sourceStore, documentStore, syncStore, searchEngine)
 	documentService := services.NewDocumentService(documentStore, chunkStore)
-	searchService := services.NewSearchService(searchEngine, documentStore, runtimeServices, searchExecutor, nil)
+	searchService := services.NewSearchService(searchEngine, documentStore, runtimeServices, searchExecutor, capabilityStore)
 	settingsService := services.NewSettingsService(settingsStore, aiFactory, cfg, runtimeServices, teamID)
+
+	// Restore AI services from saved settings (embedding, LLM)
+	// This ensures services are available after a restart without requiring
+	// the user to re-configure via the API.
+	if err := settingsService.RestoreAIServices(ctx); err != nil {
+		log.Printf("Warning: failed to restore AI services: %v", err)
+	} else {
+		if runtimeServices.EmbeddingService() != nil {
+			log.Println("Restored embedding service from saved settings")
+		}
+		if runtimeServices.LLMService() != nil {
+			log.Println("Restored LLM service from saved settings")
+		}
+	}
+
 	setupService := services.NewSetupService(userStore, sourceStore, teamID)
 
 	// Provider service (shows configuration status based on env vars)
 	providerService := services.NewProviderService(cfg)
 
 	// Capabilities service
-	capabilitiesService := services.NewCapabilitiesService(cfg)
+	capabilitiesService := services.NewCapabilitiesService(cfg, capabilityStore)
 
 	// OAuth service (handles OAuth flows for connector installations)
 	oauthService := services.NewOAuthService(services.OAuthServiceConfig{
@@ -505,12 +524,14 @@ func main() {
 		ChunkStore:       chunkStore,
 		SyncStore:        syncStore,
 		SearchEngine:     searchEngine,
+		VectorIndex:      vectorIndex,
 		ConnectorFactory: connectorFactory,
 		NormaliserReg:    normaliserRegistry,
 		Services:         runtimeServices,
 		Logger:           slog.Default(),
 		IndexingExecutor: indexingExecutor,
 		CapabilitySet:    nil, // Built per-execution by executor
+		CapabilityStore:  capabilityStore,
 	})
 
 	// Create scheduler for worker mode (if enabled)

@@ -562,7 +562,7 @@ function SourceDetailContent() {
                     </div>
                     <div className="flex items-center gap-4 text-xs text-sercha-fog-grey">
                       <span className="rounded bg-sercha-mist px-2 py-0.5">
-                        {doc.content_type || "unknown"}
+                        {doc.mime_type || "unknown"}
                       </span>
                       <span>{formatRelativeTime(doc.updated_at)}</span>
                     </div>

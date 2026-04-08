@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -98,40 +98,38 @@ function SearchResultsContent() {
     }
   };
 
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
+  useEffect(() => {
+    if (!query) {
       setResults([]);
       setTotalCount(0);
       setSearched(false);
       return;
     }
 
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
     setSearched(true);
 
-    try {
-      const response = await search({
-        query: searchQuery,
-        mode: selectedMode,
-        limit: 20,
+    search({ query, mode: selectedMode, limit: 20 }, controller.signal)
+      .then((response) => {
+        setResults(response.results || []);
+        setTotalCount(response.total_count || response.results?.length || 0);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Search failed");
+        setResults([]);
+        setTotalCount(0);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       });
-      setResults(response.results || []);
-      setTotalCount(response.total_count || response.results?.length || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed");
-      setResults([]);
-      setTotalCount(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMode]);
 
-  useEffect(() => {
-    if (query) {
-      performSearch(query);
-    }
-  }, [query, performSearch]);
+    return () => controller.abort();
+  }, [query, selectedMode]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,13 +296,12 @@ function SearchResultsContent() {
           {/* Results List */}
           {!loading &&
             results.map((result) => {
-              const FileIcon = getFileIcon(result.document.mime_type);
-              const isGitHub = result.document.path.includes("github.com");
-              const displayPath = result.document.metadata?.file_path || result.document.title;
+              const FileIcon = getFileIcon(result.mime_type);
+              const isGitHub = result.path?.includes("github.com");
 
               return (
                 <article
-                  key={result.chunk.id}
+                  key={result.document_id}
                   className="rounded-2xl border border-sercha-silverline bg-white p-6 transition-all hover:border-sercha-indigo hover:shadow-md"
                 >
                   {/* Title & Source */}
@@ -314,11 +311,11 @@ function SearchResultsContent() {
                       <h3 className="font-semibold text-sercha-ink-slate hover:text-sercha-indigo">
                         <a
                           href="#"
-                          onClick={(e) => handleOpenDocument(e, result.document.id)}
+                          onClick={(e) => handleOpenDocument(e, result.document_id)}
                           className="flex items-center gap-1 cursor-pointer"
                         >
-                          {result.document.title}
-                          {openingDoc === result.document.id ? (
+                          {result.title}
+                          {openingDoc === result.document_id ? (
                             <Loader2 size={14} className="animate-spin opacity-50" />
                           ) : (
                             <ExternalLink size={14} className="opacity-50" />
@@ -341,33 +338,30 @@ function SearchResultsContent() {
 
                   {/* Path */}
                   <p className="mb-3 text-sm text-sercha-fog-grey font-mono">
-                    {displayPath}
+                    {result.path || result.title}
                   </p>
 
                   {/* Content Snippet */}
-                  <div
-                    className="mb-3 text-sm text-sercha-ink-slate leading-relaxed whitespace-pre-wrap font-mono bg-sercha-snow rounded-lg p-3 overflow-x-auto"
-                    dangerouslySetInnerHTML={{
-                      __html: highlightQuery(
-                        truncateContent(result.chunk.content, 400),
-                        query
-                      ),
-                    }}
-                  />
+                  {result.snippet && (
+                    <div
+                      className="mb-3 text-sm text-sercha-ink-slate leading-relaxed whitespace-pre-wrap font-mono bg-sercha-snow rounded-lg p-3 overflow-x-auto"
+                      dangerouslySetInnerHTML={{
+                        __html: highlightQuery(
+                          truncateContent(result.snippet, 400),
+                          query
+                        ),
+                      }}
+                    />
+                  )}
 
                   {/* Meta */}
                   <div className="flex items-center gap-4 text-xs text-sercha-fog-grey">
                     <span className="flex items-center gap-1">
                       <Clock size={14} />
-                      {formatDate(result.document.indexed_at)}
+                      {formatDate(result.indexed_at)}
                     </span>
-                    {result.document.metadata?.repo && (
-                      <span className="text-sercha-fog-grey">
-                        {result.document.metadata.repo}
-                      </span>
-                    )}
                     <span className="text-sercha-silverline">
-                      {result.document.mime_type}
+                      {result.mime_type}
                     </span>
                   </div>
                 </article>

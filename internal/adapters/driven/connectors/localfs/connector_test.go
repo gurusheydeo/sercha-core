@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors"
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
 )
 
@@ -132,7 +133,7 @@ func TestGuessMimeType(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := guessMimeType(tt.path)
+		got := connectors.GuessMimeType(tt.path)
 		if got != tt.expected {
 			t.Errorf("guessMimeType(%q) = %q, expected %q", tt.path, got, tt.expected)
 		}

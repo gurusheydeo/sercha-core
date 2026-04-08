@@ -25,7 +25,7 @@ func setupTestSessionStore(t *testing.T) (*SessionStore, *miniredis.Miniredis, f
 	store := NewSessionStore(client)
 
 	return store, mr, func() {
-		client.Close()
+		_ = client.Close()
 		mr.Close()
 	}
 }

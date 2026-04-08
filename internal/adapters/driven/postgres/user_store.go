@@ -134,7 +134,7 @@ func (s *UserStore) List(ctx context.Context, teamID string) ([]*domain.User, er
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var users []*domain.User
 	for rows.Next() {

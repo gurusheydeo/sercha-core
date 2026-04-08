@@ -69,7 +69,7 @@ func (s *ChunkStore) SaveBatch(ctx context.Context, chunks []*domain.Chunk) erro
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
+		defer func() { _ = stmt.Close() }()
 
 		for _, chunk := range chunks {
 			_, err = stmt.ExecContext(ctx,
@@ -104,7 +104,7 @@ func (s *ChunkStore) GetByDocument(ctx context.Context, documentID string) ([]*d
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var chunks []*domain.Chunk
 	for rows.Next() {
@@ -173,7 +173,7 @@ func (s *ChunkStore) GetChunkIDs(ctx context.Context, documentID string) ([]stri
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var ids []string
 	for rows.Next() {
@@ -199,7 +199,7 @@ func (s *ChunkStore) GetChunkIDsBySource(ctx context.Context, sourceID string) (
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var ids []string
 	for rows.Next() {

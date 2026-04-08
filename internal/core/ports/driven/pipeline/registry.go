@@ -56,7 +56,8 @@ type CapabilityProvider interface {
 	// The concrete type depends on the capability type:
 	// - CapabilityLLM: driven.LLMService
 	// - CapabilityEmbedder: driven.EmbeddingService
-	// - CapabilityVectorStore: driven.SearchEngine
+	// - CapabilitySearchEngine: driven.SearchEngine
+	// - CapabilityVectorStore: driven.VectorIndex
 	// - CapabilityDocStore: driven.DocumentStore
 	// - CapabilityChunkStore: driven.DocumentStore (chunk operations)
 	Instance() any

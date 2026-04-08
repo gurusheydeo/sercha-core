@@ -75,7 +75,7 @@ func (r *SearchQueryRepository) GetSearchHistory(ctx context.Context, teamID str
 	if err != nil {
 		return nil, fmt.Errorf("query search history: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var queries []*domain.SearchQuery
 	for rows.Next() {
@@ -162,7 +162,7 @@ func (r *SearchQueryRepository) GetSearchAnalytics(ctx context.Context, teamID s
 	if err != nil {
 		return nil, fmt.Errorf("query searches by mode: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var mode string
@@ -194,7 +194,7 @@ func (r *SearchQueryRepository) GetSearchAnalytics(ctx context.Context, teamID s
 	if err != nil {
 		return nil, fmt.Errorf("query top queries: %w", err)
 	}
-	defer topRows.Close()
+	defer func() { _ = topRows.Close() }()
 
 	for topRows.Next() {
 		var qf domain.QueryFrequency

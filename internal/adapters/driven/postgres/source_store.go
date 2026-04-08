@@ -187,7 +187,7 @@ func (s *SourceStore) querySources(ctx context.Context, query string, args ...in
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sources []*domain.Source
 	for rows.Next() {
@@ -324,7 +324,7 @@ func (s *SourceStore) querySourcesWithConnection(ctx context.Context, query stri
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sources []*domain.Source
 	for rows.Next() {

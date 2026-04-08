@@ -65,9 +65,6 @@ func (s *settingsService) Update(ctx context.Context, updaterID string, req driv
 	if req.SyncEnabled != nil {
 		settings.SyncEnabled = *req.SyncEnabled
 	}
-	if req.SemanticSearchEnabled != nil {
-		settings.SemanticSearchEnabled = *req.SemanticSearchEnabled
-	}
 	if req.AutoSuggestEnabled != nil {
 		settings.AutoSuggestEnabled = *req.AutoSuggestEnabled
 	}
@@ -192,6 +189,41 @@ func (s *settingsService) UpdateAISettings(ctx context.Context, req driving.Upda
 	status.EffectiveSearchMode = s.services.Config().EffectiveSearchMode()
 
 	return status, nil
+}
+
+// RestoreAIServices restores AI services from persisted settings on startup.
+// This must be called during application boot to ensure embedding/LLM services
+// are available without requiring the user to re-configure via the API.
+func (s *settingsService) RestoreAIServices(ctx context.Context) error {
+	aiSettings, err := s.settingsStore.GetAISettings(ctx, s.teamID)
+	if err != nil || aiSettings == nil {
+		// No saved settings — nothing to restore
+		return nil
+	}
+
+	// Restore embedding service
+	if aiSettings.Embedding.IsConfigured() {
+		credentials := s.configProvider.GetAICredentials(aiSettings.Embedding.Provider)
+		if credentials != nil {
+			embSvc, err := s.aiFactory.CreateEmbeddingService(&aiSettings.Embedding, credentials)
+			if err == nil {
+				_ = s.services.ValidateAndSetEmbedding(ctx, embSvc)
+			}
+		}
+	}
+
+	// Restore LLM service
+	if aiSettings.LLM.IsConfigured() {
+		credentials := s.configProvider.GetAICredentials(aiSettings.LLM.Provider)
+		if credentials != nil {
+			llmSvc, err := s.aiFactory.CreateLLMService(&aiSettings.LLM, credentials)
+			if err == nil {
+				_ = s.services.ValidateAndSetLLM(ctx, llmSvc)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetAIStatus returns the current status of AI services

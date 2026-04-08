@@ -17,11 +17,11 @@ var _ driving.SearchService = (*searchService)(nil)
 
 // searchService implements the SearchService interface
 type searchService struct {
-	searchEngine   driven.SearchEngine
-	documentStore  driven.DocumentStore
-	services       *runtime.Services // Dynamic AI services
-	searchExecutor pipelineport.SearchExecutor // Required pipeline executor
-	capabilitySet  *pipeline.CapabilitySet     // Capabilities for pipeline
+	searchEngine    driven.SearchEngine
+	documentStore   driven.DocumentStore
+	services        *runtime.Services           // Dynamic AI services
+	searchExecutor  pipelineport.SearchExecutor // Required pipeline executor
+	capabilityStore driven.CapabilityStore      // For fetching capability preferences
 }
 
 // NewSearchService creates a new SearchService
@@ -31,7 +31,7 @@ func NewSearchService(
 	documentStore driven.DocumentStore,
 	services *runtime.Services,
 	searchExecutor pipelineport.SearchExecutor, // Required pipeline executor
-	capabilitySet *pipeline.CapabilitySet, // Required capabilities
+	capabilityStore driven.CapabilityStore, // For fetching capability preferences
 ) driving.SearchService {
 	// SearchExecutor is now required
 	if searchExecutor == nil {
@@ -39,11 +39,11 @@ func NewSearchService(
 	}
 
 	return &searchService{
-		searchEngine:   searchEngine,
-		documentStore:  documentStore,
-		services:       services,
-		searchExecutor: searchExecutor,
-		capabilitySet:  capabilitySet,
+		searchEngine:    searchEngine,
+		documentStore:   documentStore,
+		services:        services,
+		searchExecutor:  searchExecutor,
+		capabilityStore: capabilityStore,
 	}
 }
 
@@ -85,13 +85,40 @@ func (s *searchService) searchWithPipeline(
 
 	// Build pipeline context
 	pipelineContext := &pipeline.SearchContext{
-		PipelineID:   "default-search",
-		Capabilities: s.capabilitySet,
-		Filters:      pipelineInput.Filters,
+		PipelineID: "default-search",
+		Filters:    pipelineInput.Filters,
 		Pagination: pipeline.PaginationConfig{
 			Offset: opts.Offset,
 			Limit:  opts.Limit,
 		},
+	}
+
+	// Start with defaults: BM25 enabled, vector disabled
+	pipelineContext.Preferences = &pipeline.StagePreferences{
+		BM25SearchEnabled:   true,
+		VectorSearchEnabled: false,
+	}
+
+	// Fetch capability preferences (what's available)
+	// Note: teamID should come from context, use "default" for now
+	if s.capabilityStore != nil {
+		prefs, _ := s.capabilityStore.GetPreferences(ctx, "default")
+		if prefs != nil {
+			pipelineContext.Preferences.TextIndexingEnabled = prefs.TextIndexingEnabled
+			pipelineContext.Preferences.EmbeddingIndexingEnabled = prefs.EmbeddingIndexingEnabled
+			pipelineContext.Preferences.BM25SearchEnabled = prefs.BM25SearchEnabled
+			pipelineContext.Preferences.VectorSearchEnabled = prefs.VectorSearchEnabled
+		}
+	}
+
+	// Apply search mode on top of capability availability
+	switch opts.Mode {
+	case domain.SearchModeTextOnly:
+		pipelineContext.Preferences.VectorSearchEnabled = false
+	case domain.SearchModeSemanticOnly:
+		pipelineContext.Preferences.BM25SearchEnabled = false
+	case domain.SearchModeHybrid:
+		// Keep both as-is from capability preferences
 	}
 
 	// Execute pipeline
@@ -100,34 +127,32 @@ func (s *searchService) searchWithPipeline(
 		return nil, err
 	}
 
-	// Convert pipeline results to domain results
-	rankedChunks := make([]*domain.RankedChunk, 0, len(pipelineOutput.Results))
+	// Convert pipeline results to domain results, filtering out orphaned documents
+	items := make([]*domain.SearchResultItem, 0, len(pipelineOutput.Results))
 	for _, result := range pipelineOutput.Results {
-		// Map pipeline.PresentedResult to domain.RankedChunk
-		rankedChunk := &domain.RankedChunk{
-			Chunk: &domain.Chunk{
-				ID:         result.ChunkID,
-				DocumentID: result.DocumentID,
-				SourceID:   result.SourceID,
-				Content:    result.Snippet,
-			},
-			Score: result.Score,
+		// Look up the document — skip results where the document no longer exists
+		doc, err := s.documentStore.Get(ctx, result.DocumentID)
+		if err != nil || doc == nil {
+			continue
 		}
 
-		// Enrich with document if needed
-		if rankedChunk.Document == nil {
-			doc, _ := s.documentStore.Get(ctx, result.DocumentID)
-			rankedChunk.Document = doc
-		}
-
-		rankedChunks = append(rankedChunks, rankedChunk)
+		items = append(items, &domain.SearchResultItem{
+			DocumentID: result.DocumentID,
+			SourceID:   doc.SourceID,
+			Title:      doc.Title,
+			Path:       doc.Path,
+			MimeType:   doc.MimeType,
+			Snippet:    result.Snippet,
+			Score:      result.Score,
+			IndexedAt:  doc.IndexedAt,
+		})
 	}
 
 	return &domain.SearchResult{
 		Query:      query,
 		Mode:       opts.Mode,
-		Results:    rankedChunks,
-		TotalCount: int(pipelineOutput.TotalCount),
+		Results:    items,
+		TotalCount: len(items),
 		Took:       time.Since(start),
 	}, nil
 }

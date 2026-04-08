@@ -15,6 +15,7 @@ type IndexingExecutor struct {
 	pipelineRegistry pipelineport.PipelineRegistry
 	capRegistry      pipelineport.CapabilityRegistry
 	manifestStore    pipelineport.ManifestStore
+	stageRegistry    pipelineport.StageRegistry
 }
 
 // NewIndexingExecutor creates a new indexing executor.
@@ -23,12 +24,14 @@ func NewIndexingExecutor(
 	pipelineRegistry pipelineport.PipelineRegistry,
 	capRegistry pipelineport.CapabilityRegistry,
 	manifestStore pipelineport.ManifestStore,
+	stageRegistry pipelineport.StageRegistry,
 ) *IndexingExecutor {
 	return &IndexingExecutor{
 		builder:          builder,
 		pipelineRegistry: pipelineRegistry,
 		capRegistry:      capRegistry,
 		manifestStore:    manifestStore,
+		stageRegistry:    stageRegistry,
 	}
 }
 
@@ -42,6 +45,11 @@ func (e *IndexingExecutor) Execute(
 	def, ok := e.pipelineRegistry.Get(pctx.PipelineID)
 	if !ok {
 		return nil, fmt.Errorf("pipeline not found: %s", pctx.PipelineID)
+	}
+
+	// Apply preference-based stage filtering
+	if pctx.Preferences != nil {
+		def = e.applyPreferences(def, pctx.Preferences)
 	}
 
 	// Collect required capabilities from all stages
@@ -67,12 +75,24 @@ func (e *IndexingExecutor) Execute(
 	}
 
 	// Convert result to IndexingOutput
-	output, ok := result.(*pipeline.IndexingOutput)
-	if !ok {
+	switch v := result.(type) {
+	case *pipeline.IndexingOutput:
+		return v, nil
+	case []*pipeline.Chunk:
+		// When the last stage is a pass-through loader (e.g. bm25-loader in BM25-only mode),
+		// the pipeline returns chunks. Build IndexingOutput from them.
+		chunkIDs := make([]string, len(v))
+		for i, c := range v {
+			chunkIDs[i] = c.ID
+		}
+		docID := ""
+		if len(v) > 0 {
+			docID = v[0].DocumentID
+		}
+		return &pipeline.IndexingOutput{DocumentID: docID, ChunkIDs: chunkIDs}, nil
+	default:
 		return nil, fmt.Errorf("unexpected pipeline output type: %T", result)
 	}
-
-	return output, nil
 }
 
 // ExecuteBatch runs an indexing pipeline for multiple documents.
@@ -120,9 +140,21 @@ func (e *IndexingExecutor) collectRequiredCapabilities(def pipeline.PipelineDefi
 			continue
 		}
 
-		// Get stage descriptor to find capability requirements
-		// This requires the stage registry, which we could inject
-		// For now, we'll rely on the builder to handle this
+		// Look up factory via stage registry to get the descriptor
+		factory, ok := e.stageRegistry.Get(stageConfig.StageID)
+		if !ok {
+			continue
+		}
+
+		desc := factory.Descriptor()
+		for _, req := range desc.Capabilities {
+			// Deduplicate by capability type, keeping the strictest mode
+			// Required beats Optional beats Fallback
+			existing, exists := seen[req.Type]
+			if !exists || isStricterMode(req.Mode, existing.Mode) {
+				seen[req.Type] = req
+			}
+		}
 	}
 
 	result := make([]pipeline.CapabilityRequirement, 0, len(seen))
@@ -130,6 +162,40 @@ func (e *IndexingExecutor) collectRequiredCapabilities(def pipeline.PipelineDefi
 		result = append(result, req)
 	}
 	return result
+}
+
+// isStricterMode returns true if mode1 is stricter than mode2.
+// Required > Optional > Fallback
+func isStricterMode(mode1, mode2 pipeline.CapabilityMode) bool {
+	priority := map[pipeline.CapabilityMode]int{
+		pipeline.CapabilityRequired: 3,
+		pipeline.CapabilityOptional: 2,
+		pipeline.CapabilityFallback: 1,
+	}
+	return priority[mode1] > priority[mode2]
+}
+
+// applyPreferences filters pipeline stages based on user preferences.
+func (e *IndexingExecutor) applyPreferences(def pipeline.PipelineDefinition, prefs *pipeline.StagePreferences) pipeline.PipelineDefinition {
+	// Clone stages slice
+	stages := make([]pipeline.StageConfig, len(def.Stages))
+	copy(stages, def.Stages)
+
+	for i := range stages {
+		switch stages[i].StageID {
+		case "doc-loader":
+			if !prefs.TextIndexingEnabled {
+				stages[i].Enabled = false
+			}
+		case "vector-loader", "embedder":
+			if !prefs.EmbeddingIndexingEnabled {
+				stages[i].Enabled = false
+			}
+		}
+	}
+
+	def.Stages = stages
+	return def
 }
 
 // buildManifest creates a produces manifest from indexing outputs.

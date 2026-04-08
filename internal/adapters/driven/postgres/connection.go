@@ -157,7 +157,7 @@ func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary
 	if err != nil {
 		return nil, fmt.Errorf("list connections: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var summaries []*domain.ConnectionSummary
 	for rows.Next() {
@@ -230,7 +230,7 @@ func (s *ConnectionStore) GetByProvider(ctx context.Context, providerType domain
 	if err != nil {
 		return nil, fmt.Errorf("list connections by provider: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var summaries []*domain.ConnectionSummary
 	for rows.Next() {

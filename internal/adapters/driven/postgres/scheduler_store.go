@@ -73,7 +73,7 @@ func (s *SchedulerStore) ListScheduledTasks(ctx context.Context, teamID string) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanScheduledTasks(rows)
 }
@@ -140,7 +140,7 @@ func (s *SchedulerStore) GetDueScheduledTasks(ctx context.Context) ([]*domain.Sc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanScheduledTasks(rows)
 }

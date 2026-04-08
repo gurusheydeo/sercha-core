@@ -213,3 +213,43 @@ func (p *CapabilityPreferences) DisableEmbeddingIndexing() {
 	p.VectorSearchEnabled = false
 	p.UpdatedAt = time.Now()
 }
+
+// ResolveCapabilities builds runtime capability state by combining backend availability
+// with user preferences. The available map uses domain CapabilityType keys.
+//
+// Availability mapping:
+// - CapabilityTextIndexing: whether OpenSearch is available
+// - CapabilityEmbeddingIndexing: whether embeddings + vector store are available
+// - CapabilityBM25Search: same as text_indexing (derived)
+// - CapabilityVectorSearch: same as embedding_indexing (derived)
+//
+// Dependency rules are enforced: if a dependency is not enabled, the dependent
+// capability is also not enabled (e.g., bm25_search requires text_indexing).
+func ResolveCapabilities(prefs *CapabilityPreferences, available map[CapabilityType]bool) []*Capability {
+	// Create capabilities using factory functions, passing availability from the map
+	textIndexing := NewTextIndexingCapability("opensearch", available[CapabilityTextIndexing])
+	embeddingIndexing := NewEmbeddingIndexingCapability("pgvector", available[CapabilityEmbeddingIndexing])
+	bm25Search := NewBM25SearchCapability("opensearch", available[CapabilityBM25Search])
+	vectorSearch := NewVectorSearchCapability("pgvector", available[CapabilityVectorSearch])
+
+	// Apply user preferences if provided
+	if prefs != nil {
+		textIndexing.Enabled = prefs.TextIndexingEnabled
+		embeddingIndexing.Enabled = prefs.EmbeddingIndexingEnabled
+		bm25Search.Enabled = prefs.BM25SearchEnabled
+		vectorSearch.Enabled = prefs.VectorSearchEnabled
+	}
+
+	// Enforce dependency rules:
+	// bm25_search depends on text_indexing
+	if !textIndexing.Enabled || !textIndexing.Available {
+		bm25Search.Enabled = false
+	}
+
+	// vector_search depends on embedding_indexing
+	if !embeddingIndexing.Enabled || !embeddingIndexing.Available {
+		vectorSearch.Enabled = false
+	}
+
+	return []*Capability{textIndexing, embeddingIndexing, bm25Search, vectorSearch}
+}

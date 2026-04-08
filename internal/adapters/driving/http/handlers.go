@@ -136,13 +136,90 @@ func (s *Server) handleGetCapabilities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	caps, err := s.capabilitiesService.GetCapabilities(r.Context())
+	// Use team from auth context if available, otherwise fall back to "default"
+	teamID := "default"
+	if authCtx := GetAuthContext(r.Context()); authCtx != nil {
+		teamID = authCtx.TeamID
+	}
+
+	caps, err := s.capabilitiesService.GetCapabilities(r.Context(), teamID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get capabilities")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, caps)
+}
+
+// handleGetCapabilityPreferences godoc
+// @Summary      Get capability preferences
+// @Description  Get capability preferences for the current team
+// @Tags         Capabilities
+// @Produce      json
+// @Success      200  {object}  domain.CapabilityPreferences
+// @Failure      401  {object}  ErrorResponse  "Unauthorized"
+// @Failure      500  {object}  ErrorResponse  "Internal server error"
+// @Security     BearerAuth
+// @Router       /capability-preferences [get]
+func (s *Server) handleGetCapabilityPreferences(w http.ResponseWriter, r *http.Request) {
+	authCtx := GetAuthContext(r.Context())
+	if authCtx == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if s.capabilitiesService == nil {
+		writeError(w, http.StatusServiceUnavailable, "capabilities service not available")
+		return
+	}
+
+	prefs, err := s.capabilitiesService.GetCapabilityPreferences(r.Context(), authCtx.TeamID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get capability preferences")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, prefs)
+}
+
+// handleUpdateCapabilityPreferences godoc
+// @Summary      Update capability preferences
+// @Description  Update capability preferences for the current team
+// @Tags         Capabilities
+// @Accept       json
+// @Produce      json
+// @Param        request  body      driving.UpdateCapabilityPreferencesRequest  true  "Capability preferences"
+// @Success      200      {object}  domain.CapabilityPreferences
+// @Failure      400      {object}  ErrorResponse  "Invalid request body"
+// @Failure      401      {object}  ErrorResponse  "Unauthorized"
+// @Failure      500      {object}  ErrorResponse  "Internal server error"
+// @Security     BearerAuth
+// @Router       /capability-preferences [put]
+func (s *Server) handleUpdateCapabilityPreferences(w http.ResponseWriter, r *http.Request) {
+	authCtx := GetAuthContext(r.Context())
+	if authCtx == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if s.capabilitiesService == nil {
+		writeError(w, http.StatusServiceUnavailable, "capabilities service not available")
+		return
+	}
+
+	var req driving.UpdateCapabilityPreferencesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	prefs, err := s.capabilitiesService.UpdateCapabilityPreferences(r.Context(), authCtx.TeamID, req)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update capability preferences")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, prefs)
 }
 
 // Auth endpoints
@@ -972,7 +1049,7 @@ func (s *Server) handleGetAISettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get capabilities to determine credential availability
-	caps, err := s.capabilitiesService.GetCapabilities(r.Context())
+	caps, err := s.capabilitiesService.GetCapabilities(r.Context(), getTeamID(r.Context()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get capabilities")
 		return

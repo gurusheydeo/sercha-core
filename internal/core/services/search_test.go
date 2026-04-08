@@ -61,8 +61,7 @@ func createTestSearchService(searchEngine *mocks.MockSearchEngine, documentStore
 			}, nil
 		},
 	}
-	capabilitySet := pipeline.NewCapabilitySet()
-	return NewSearchService(searchEngine, documentStore, runtimeServices, executor, capabilitySet).(*searchService)
+	return NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil).(*searchService)
 }
 
 func TestSearchService_Search(t *testing.T) {
@@ -220,6 +219,11 @@ func TestSearchService_SearchBySource(t *testing.T) {
 	documentStore := mocks.NewMockDocumentStore()
 	runtimeServices := createTestServices(embeddingService)
 	svc := createTestSearchService(searchEngine, documentStore, runtimeServices)
+
+	// Save documents for enrichment
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-1", SourceID: "source-1", Title: "Doc 1"})
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-2", SourceID: "source-2", Title: "Doc 2"})
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-3", SourceID: "source-1", Title: "Doc 3"})
 
 	// Index chunks for different sources
 	chunks := []*domain.Chunk{
