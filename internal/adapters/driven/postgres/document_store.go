@@ -82,7 +82,7 @@ func (s *DocumentStore) SaveBatch(ctx context.Context, docs []*domain.Document) 
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
+		defer func() { _ = stmt.Close() }()
 
 		for _, doc := range docs {
 			metadataJSON, err := json.Marshal(doc.Metadata)

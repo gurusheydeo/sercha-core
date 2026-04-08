@@ -453,7 +453,7 @@ func (s *SearchEngine) ensureIndex(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to check index existence: %w", err)
 	}
-	defer existsResp.Body.Close()
+	defer func() { _ = existsResp.Body.Close() }()
 
 	// Index exists (200)
 	if existsResp.StatusCode == 200 {

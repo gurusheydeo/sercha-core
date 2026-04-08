@@ -69,7 +69,7 @@ func (s *ChunkStore) SaveBatch(ctx context.Context, chunks []*domain.Chunk) erro
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
+		defer func() { _ = stmt.Close() }()
 
 		for _, chunk := range chunks {
 			_, err = stmt.ExecContext(ctx,

@@ -171,7 +171,7 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, cursor string) (*ListR
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
 		return nil, fmt.Errorf("decode repos: %w", err)
@@ -205,7 +205,7 @@ func (c *Client) ValidateRepoAccess(ctx context.Context, owner, repo string) err
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 

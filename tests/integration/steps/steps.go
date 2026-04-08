@@ -1240,7 +1240,7 @@ func anthropicIsNotConfiguredInEnvironment() error {
 	// Check if anthropic is in the list
 	for _, p := range llm {
 		if p == "anthropic" {
-			return fmt.Errorf("Anthropic is configured in environment - skipping test")
+			return fmt.Errorf("anthropic is configured in environment - skipping test")
 		}
 	}
 
@@ -1567,7 +1567,7 @@ func providersShouldIncludeAnthropic() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Anthropic not found in LLM providers")
+	return fmt.Errorf("anthropic not found in LLM providers")
 }
 
 func providersShouldIncludeOllama() error {
@@ -1585,7 +1585,7 @@ func providersShouldIncludeOllama() error {
 		}
 	}
 	if !ollamaInEmbedding {
-		return fmt.Errorf("Ollama not found in embedding providers")
+		return fmt.Errorf("ollama not found in embedding providers")
 	}
 	return nil
 }

@@ -142,7 +142,7 @@ func main() {
 		if err := redisClient.Ping(ctx).Err(); err != nil {
 			log.Fatalf("Failed to connect to Redis: %v", err)
 		}
-		defer redisClient.Close()
+		defer func() { _ = redisClient.Close() }()
 		log.Println("Redis connected")
 	}
 

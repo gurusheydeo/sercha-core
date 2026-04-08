@@ -38,10 +38,10 @@ func (v *VectorIndex) EnsureTable(ctx context.Context) error {
 	}
 
 	// Create HNSW vector index for similarity search
-	idxQuery := fmt.Sprintf(`
+	idxQuery := `
 		CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON embeddings
 		USING hnsw (embedding vector_cosine_ops)
-	`)
+	`
 	if _, err := v.pool.Exec(ctx, idxQuery); err != nil {
 		return fmt.Errorf("failed to create vector index: %w", err)
 	}
@@ -147,7 +147,7 @@ func (v *VectorIndex) IndexBatch(ctx context.Context, ids []string, documentIDs 
 	}
 
 	br := v.pool.SendBatch(ctx, batch)
-	defer br.Close()
+	defer func() { _ = br.Close() }()
 
 	var errs []error
 	for i := 0; i < len(ids); i++ {

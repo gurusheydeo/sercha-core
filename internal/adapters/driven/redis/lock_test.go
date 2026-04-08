@@ -20,7 +20,7 @@ func setupTestRedis(t *testing.T) (*redis.Client, func()) {
 	})
 
 	return client, func() {
-		client.Close()
+		_ = client.Close()
 		mr.Close()
 	}
 }

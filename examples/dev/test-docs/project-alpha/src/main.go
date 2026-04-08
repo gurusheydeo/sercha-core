@@ -32,18 +32,18 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to %s!", s.name)
+	_, _ = fmt.Fprintf(w, "Welcome to %s!", s.name)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"status":"healthy","service":"%s"}`, s.name)
+	_, _ = fmt.Fprintf(w, `{"status":"healthy","service":"%s"}`, s.name)
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"query":"%s","results":[]}`, query)
+	_, _ = fmt.Fprintf(w, `{"query":"%s","results":[]}`, query)
 }
 
 func main() {

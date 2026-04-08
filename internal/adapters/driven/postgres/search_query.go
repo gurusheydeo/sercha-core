@@ -194,7 +194,7 @@ func (r *SearchQueryRepository) GetSearchAnalytics(ctx context.Context, teamID s
 	if err != nil {
 		return nil, fmt.Errorf("query top queries: %w", err)
 	}
-	defer topRows.Close()
+	defer func() { _ = topRows.Close() }()
 
 	for topRows.Next() {
 		var qf domain.QueryFrequency

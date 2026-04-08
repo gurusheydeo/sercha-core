@@ -77,7 +77,7 @@ func (c *TestContext) Request(method, path string, body any) error {
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	c.LastStatusCode = resp.StatusCode
 	c.LastBody, err = io.ReadAll(resp.Body)

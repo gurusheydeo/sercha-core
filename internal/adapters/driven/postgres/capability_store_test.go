@@ -17,7 +17,7 @@ func TestCapabilityStore_GetPreferences_Found(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -72,7 +72,7 @@ func TestCapabilityStore_GetPreferences_NotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -115,7 +115,7 @@ func TestCapabilityStore_GetPreferences_DatabaseError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 

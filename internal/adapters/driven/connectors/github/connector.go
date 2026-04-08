@@ -435,7 +435,7 @@ func (c *Connector) formatPRContent(pr *PullRequest) string {
 	sb.WriteString(pr.Title)
 	sb.WriteString("\n\n")
 
-	sb.WriteString(fmt.Sprintf("Branch: %s → %s\n\n", pr.Head.Ref, pr.Base.Ref))
+	fmt.Fprintf(&sb, "Branch: %s → %s\n\n", pr.Head.Ref, pr.Base.Ref)
 
 	if pr.Body != "" {
 		sb.WriteString(pr.Body)
