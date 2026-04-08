@@ -216,7 +216,7 @@ func (c *Client) GetRepository(ctx context.Context, owner, repo string) (*Reposi
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var repository Repository
 	if err := json.NewDecoder(resp.Body).Decode(&repository); err != nil {
@@ -254,7 +254,7 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, since *time
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var issues []*Issue
 	if err := json.NewDecoder(resp.Body).Decode(&issues); err != nil {
@@ -287,7 +287,7 @@ func (c *Client) ListPullRequests(ctx context.Context, owner, repo string, curso
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var prs []*PullRequest
 	if err := json.NewDecoder(resp.Body).Decode(&prs); err != nil {
@@ -309,7 +309,7 @@ func (c *Client) GetTree(ctx context.Context, owner, repo, sha string) ([]*TreeE
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Tree      []*TreeEntry `json:"tree"`
@@ -337,7 +337,7 @@ func (c *Client) GetFileContent(ctx context.Context, owner, repo, path string) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var content FileContent
 	if err := json.NewDecoder(resp.Body).Decode(&content); err != nil {
@@ -353,7 +353,7 @@ func (c *Client) GetUser(ctx context.Context) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var user User
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
@@ -393,7 +393,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 				if resetTime > 0 {
 					waitDuration := time.Until(time.Unix(resetTime, 0))
 					if waitDuration > 0 && waitDuration < 5*time.Minute {
-						resp.Body.Close()
+						_ = resp.Body.Close()
 						select {
 						case <-ctx.Done():
 							return nil, ctx.Err()
@@ -411,7 +411,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 		}
 
 		// Server error - retry with exponential backoff
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -421,7 +421,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("GitHub API error %d: %s", resp.StatusCode, string(body))
 	}
 

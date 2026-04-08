@@ -145,7 +145,7 @@ func TestCapabilityStore_SavePreferences_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -190,7 +190,7 @@ func TestCapabilityStore_SavePreferences_Update(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -236,7 +236,7 @@ func TestCapabilityStore_SavePreferences_DatabaseError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -278,7 +278,7 @@ func TestCapabilityStore_SavePreferences_AllFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -318,7 +318,7 @@ func TestCapabilityStore_SavePreferences_AllTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 
@@ -358,7 +358,7 @@ func TestCapabilityStore_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create mock db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewCapabilityStore(&DB{DB: db})
 

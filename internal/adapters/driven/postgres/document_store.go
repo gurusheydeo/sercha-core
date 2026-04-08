@@ -192,7 +192,7 @@ func (s *DocumentStore) GetBySource(ctx context.Context, sourceID string, limit,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanDocuments(rows)
 }
@@ -317,7 +317,7 @@ func (s *DocumentStore) ListExternalIDs(ctx context.Context, sourceID string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var ids []string
 	for rows.Next() {

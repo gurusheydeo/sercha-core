@@ -180,7 +180,7 @@ func (s *SessionStore) ListByUser(ctx context.Context, userID string) ([]*domain
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sessions []*domain.Session
 	for rows.Next() {

@@ -120,7 +120,7 @@ func (s *SyncStateStore) List(ctx context.Context) ([]*domain.SyncState, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var states []*domain.SyncState
 	for rows.Next() {

@@ -69,17 +69,17 @@ func (f *Factory) CreateLLMService(settings *domain.LLMSettings, credentials *dr
 
 func NewOllamaEmbedding(baseURL, model string) (driven.EmbeddingService, error) {
 	// TODO: Implement Ollama embedding adapter
-	return nil, fmt.Errorf("Ollama embedding adapter not yet implemented")
+	return nil, fmt.Errorf("ollama embedding adapter not yet implemented")
 }
 
 func NewVoyageEmbedding(apiKey, model string) (driven.EmbeddingService, error) {
 	// TODO: Implement Voyage embedding adapter
-	return nil, fmt.Errorf("Voyage embedding adapter not yet implemented")
+	return nil, fmt.Errorf("voyage embedding adapter not yet implemented")
 }
 
 func NewCohereEmbedding(apiKey, model string) (driven.EmbeddingService, error) {
 	// TODO: Implement Cohere embedding adapter
-	return nil, fmt.Errorf("Cohere embedding adapter not yet implemented")
+	return nil, fmt.Errorf("cohere embedding adapter not yet implemented")
 }
 
 func NewOpenAILLM(apiKey, model, baseURL string) (driven.LLMService, error) {
@@ -89,10 +89,10 @@ func NewOpenAILLM(apiKey, model, baseURL string) (driven.LLMService, error) {
 
 func NewAnthropicLLM(apiKey, model string) (driven.LLMService, error) {
 	// TODO: Implement Anthropic LLM adapter
-	return nil, fmt.Errorf("Anthropic LLM adapter not yet implemented")
+	return nil, fmt.Errorf("anthropic LLM adapter not yet implemented")
 }
 
 func NewOllamaLLM(baseURL, model string) (driven.LLMService, error) {
 	// TODO: Implement Ollama LLM adapter
-	return nil, fmt.Errorf("Ollama LLM adapter not yet implemented")
+	return nil, fmt.Errorf("ollama LLM adapter not yet implemented")
 }
