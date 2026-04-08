@@ -10,7 +10,8 @@ import (
 // based on environment configuration (env vars) and per-team preferences.
 type CapabilitiesService interface {
 	// GetCapabilities returns information about available features.
-	GetCapabilities(ctx context.Context) (*CapabilitiesResponse, error)
+	// teamID is used to resolve per-team preferences; if empty, defaults are used.
+	GetCapabilities(ctx context.Context, teamID string) (*CapabilitiesResponse, error)
 
 	// GetCapabilityPreferences retrieves capability preferences for a team.
 	GetCapabilityPreferences(ctx context.Context, teamID string) (*domain.CapabilityPreferences, error)

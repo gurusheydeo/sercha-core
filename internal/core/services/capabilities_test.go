@@ -120,7 +120,7 @@ func TestGetCapabilities(t *testing.T) {
 	store := &mockCapabilityStore{}
 	svc := NewCapabilitiesService(configProvider, store)
 
-	caps, err := svc.GetCapabilities(context.Background())
+	caps, err := svc.GetCapabilities(context.Background(), "default")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -595,7 +595,7 @@ func TestGetCapabilities_NoProviders(t *testing.T) {
 	store := &mockCapabilityStore{}
 	svc := NewCapabilitiesService(configProvider, store)
 
-	caps, err := svc.GetCapabilities(context.Background())
+	caps, err := svc.GetCapabilities(context.Background(), "default")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -647,7 +647,7 @@ func TestGetCapabilities_WithEmbeddingProviders(t *testing.T) {
 	store := &mockCapabilityStore{}
 	svc := NewCapabilitiesService(configProvider, store)
 
-	caps, err := svc.GetCapabilities(context.Background())
+	caps, err := svc.GetCapabilities(context.Background(), "default")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

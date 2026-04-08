@@ -3,6 +3,8 @@ package indexing
 import (
 	"context"
 	"log/slog"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
@@ -92,11 +94,22 @@ func (s *VectorLoaderStage) Process(ctx context.Context, input any) (any, error)
 
 	// Filter to only chunks that have embeddings
 	var ids []string
+	var documentIDs []string
+	var contents []string
 	var embeddings [][]float32
 	for _, chunk := range chunks {
 		if len(chunk.Embedding) > 0 {
 			ids = append(ids, chunk.ID)
+			documentIDs = append(documentIDs, chunk.DocumentID)
+			contents = append(contents, chunk.Content)
 			embeddings = append(embeddings, chunk.Embedding)
+		}
+	}
+
+	// Sanitize content — PostgreSQL rejects invalid UTF-8 sequences
+	for i := range contents {
+		if !utf8.ValidString(contents[i]) {
+			contents[i] = strings.ToValidUTF8(contents[i], "")
 		}
 	}
 
@@ -112,7 +125,7 @@ func (s *VectorLoaderStage) Process(ctx context.Context, input any) (any, error)
 	}
 
 	// Index embeddings to vector store
-	if err := s.vectorIndex.IndexBatch(ctx, ids, embeddings); err != nil {
+	if err := s.vectorIndex.IndexBatch(ctx, ids, documentIDs, contents, embeddings); err != nil {
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "failed to index embeddings", Err: err}
 	}
 

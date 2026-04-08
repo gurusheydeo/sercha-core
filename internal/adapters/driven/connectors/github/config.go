@@ -39,6 +39,10 @@ type Config struct {
 	// MaxFileSize is the maximum file size in bytes to fetch.
 	// Default is 1MB.
 	MaxFileSize int64
+
+	// Concurrency is the number of concurrent file content fetches.
+	// Default is 10.
+	Concurrency int
 }
 
 // DefaultConfig returns the default GitHub connector configuration.
@@ -63,6 +67,7 @@ func DefaultConfig() *Config {
 			"yarn.lock",
 		},
 		MaxFileSize: 1 << 20, // 1MB
+		Concurrency: 10,
 	}
 }
 

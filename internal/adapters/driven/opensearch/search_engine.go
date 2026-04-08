@@ -10,7 +10,7 @@ import (
 
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
-	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
+	driven "github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Ensure interface compliance
@@ -90,6 +90,136 @@ func (s *SearchEngine) Index(ctx context.Context, chunks []*domain.Chunk) error 
 	}
 
 	return nil
+}
+
+// IndexDocument indexes a full document for BM25 text search.
+// Uses document_id as the OpenSearch document _id for upsert semantics.
+func (s *SearchEngine) IndexDocument(ctx context.Context, doc *domain.DocumentContent) error {
+	if err := s.ensureIndex(ctx); err != nil {
+		return fmt.Errorf("failed to ensure index: %w", err)
+	}
+
+	body := map[string]any{
+		"document_id": doc.DocumentID,
+		"source_id":   doc.SourceID,
+		"title":       doc.Title,
+		"content":     doc.Body,
+		"path":        doc.Path,
+		"mime_type":   doc.MimeType,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal document: %w", err)
+	}
+
+	req := opensearchapi.IndexReq{
+		Index:      s.indexName,
+		DocumentID: doc.DocumentID,
+		Body:       bytes.NewReader(bodyBytes),
+	}
+
+	resp, err := s.client.Index(ctx, req)
+	if err != nil {
+		return fmt.Errorf("index document failed: %w", err)
+	}
+
+	if httpResp := resp.Inspect().Response; httpResp != nil {
+		if httpResp.StatusCode != 200 && httpResp.StatusCode != 201 {
+			respBody, _ := io.ReadAll(httpResp.Body)
+			return fmt.Errorf("index document failed with status %d: %s", httpResp.StatusCode, string(respBody))
+		}
+	}
+
+	return nil
+}
+
+// SearchDocuments performs a BM25 text search returning document-level results.
+func (s *SearchEngine) SearchDocuments(ctx context.Context, query string, opts domain.SearchOptions) ([]driven.DocumentResult, int, error) {
+	// Build search query against both title and content fields
+	searchQuery := map[string]any{
+		"query": map[string]any{
+			"bool": map[string]any{
+				"must": []any{
+					map[string]any{
+						"multi_match": map[string]any{
+							"query":  query,
+							"fields": []string{"title^2", "content"},
+						},
+					},
+				},
+			},
+		},
+		"from": opts.Offset,
+		"size": opts.Limit,
+		"highlight": map[string]any{
+			"fields": map[string]any{
+				"content": map[string]any{
+					"fragment_size":       200,
+					"number_of_fragments": 3,
+				},
+				"title": map[string]any{
+					"fragment_size":       200,
+					"number_of_fragments": 1,
+				},
+			},
+		},
+	}
+
+	// Add source filter if specified
+	if len(opts.SourceIDs) > 0 {
+		boolQuery := searchQuery["query"].(map[string]any)["bool"].(map[string]any)
+		boolQuery["filter"] = []any{
+			map[string]any{
+				"terms": map[string]any{
+					"source_id": opts.SourceIDs,
+				},
+			},
+		}
+	}
+
+	queryBody, err := json.Marshal(searchQuery)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to marshal query: %w", err)
+	}
+
+	req := &opensearchapi.SearchReq{
+		Indices: []string{s.indexName},
+		Body:    bytes.NewReader(queryBody),
+	}
+
+	resp, err := s.client.Search(ctx, req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("search failed: %w", err)
+	}
+
+	if httpResp := resp.Inspect().Response; httpResp != nil {
+		if httpResp.StatusCode == 404 {
+			return []driven.DocumentResult{}, 0, nil
+		}
+		if httpResp.StatusCode != 200 {
+			respBody, _ := io.ReadAll(httpResp.Body)
+			return nil, 0, fmt.Errorf("search failed with status %d: %s", httpResp.StatusCode, string(respBody))
+		}
+	}
+
+	results := make([]driven.DocumentResult, 0, len(resp.Hits.Hits))
+	for _, hit := range resp.Hits.Hits {
+		var source map[string]any
+		if err := json.Unmarshal(hit.Source, &source); err != nil {
+			return nil, 0, fmt.Errorf("failed to unmarshal source: %w", err)
+		}
+
+		results = append(results, driven.DocumentResult{
+			DocumentID: getString(source, "document_id"),
+			SourceID:   getString(source, "source_id"),
+			Title:      getString(source, "title"),
+			Content:    getString(source, "content"),
+			Score:      float64(hit.Score),
+		})
+	}
+
+	return results, resp.Hits.Total.Value, nil
 }
 
 // Search performs a BM25 text search
@@ -245,6 +375,20 @@ func (s *SearchEngine) DeleteByDocument(ctx context.Context, documentID string) 
 	})
 }
 
+// DeleteByDocuments deletes all chunks for multiple documents in a single operation
+func (s *SearchEngine) DeleteByDocuments(ctx context.Context, documentIDs []string) error {
+	if len(documentIDs) == 0 {
+		return nil
+	}
+	return s.deleteByQuery(ctx, map[string]any{
+		"query": map[string]any{
+			"terms": map[string]any{
+				"document_id": documentIDs,
+			},
+		},
+	})
+}
+
 // DeleteBySource deletes all chunks for a source
 func (s *SearchEngine) DeleteBySource(ctx context.Context, sourceID string) error {
 	return s.deleteByQuery(ctx, map[string]any{
@@ -298,7 +442,8 @@ func (s *SearchEngine) Count(ctx context.Context) (int64, error) {
 	return int64(resp.Count), nil
 }
 
-// ensureIndex creates the index with the correct mapping if it doesn't exist
+// ensureIndex creates the index with the correct mapping if it doesn't exist.
+// The index stores full documents (not chunks) for BM25 text search.
 func (s *SearchEngine) ensureIndex(ctx context.Context) error {
 	// Check if index exists using low-level Do to avoid v4 client treating 404 as error.
 	// IndicesExists returns 200 if the index exists, 404 if it doesn't — both are valid.
@@ -315,25 +460,29 @@ func (s *SearchEngine) ensureIndex(ctx context.Context) error {
 		return nil
 	}
 
-	// Create index with mapping
+	// Create index with document-level mapping
 	mapping := map[string]any{
 		"mappings": map[string]any{
 			"properties": map[string]any{
-				"id": map[string]any{
-					"type": "keyword",
-				},
 				"document_id": map[string]any{
 					"type": "keyword",
 				},
 				"source_id": map[string]any{
 					"type": "keyword",
 				},
+				"title": map[string]any{
+					"type":     "text",
+					"analyzer": "standard",
+				},
 				"content": map[string]any{
 					"type":     "text",
 					"analyzer": "standard",
 				},
-				"chunk_position": map[string]any{
-					"type": "integer",
+				"path": map[string]any{
+					"type": "keyword",
+				},
+				"mime_type": map[string]any{
+					"type": "keyword",
 				},
 			},
 		},
@@ -363,16 +512,23 @@ func (s *SearchEngine) ensureIndex(ctx context.Context) error {
 	return nil
 }
 
-// deleteByQuery is a helper for deleting documents matching a query
+// deleteByQuery is a helper for deleting documents matching a query.
+// Uses wait_for_completion=false so OpenSearch processes deletes asynchronously,
+// avoiding blocking the caller while the index is being cleaned up.
 func (s *SearchEngine) deleteByQuery(ctx context.Context, query map[string]any) error {
 	queryBody, err := json.Marshal(query)
 	if err != nil {
 		return fmt.Errorf("failed to marshal query: %w", err)
 	}
 
+	waitForCompletion := false
 	req := opensearchapi.DocumentDeleteByQueryReq{
 		Indices: []string{s.indexName},
 		Body:    bytes.NewReader(queryBody),
+		Params: opensearchapi.DocumentDeleteByQueryParams{
+			WaitForCompletion: &waitForCompletion,
+			Conflicts:         "proceed",
+		},
 	}
 
 	resp, err := s.client.Document.DeleteByQuery(ctx, req)
@@ -386,7 +542,8 @@ func (s *SearchEngine) deleteByQuery(ctx context.Context, query map[string]any) 
 		if httpResp.StatusCode == 404 {
 			return nil
 		}
-		if httpResp.StatusCode != 200 {
+		// 200 (sync) and 202 (async task accepted) are both OK
+		if httpResp.StatusCode != 200 && httpResp.StatusCode != 202 {
 			body, _ := io.ReadAll(httpResp.Body)
 			return fmt.Errorf("delete by query failed with status %d: %s", httpResp.StatusCode, string(body))
 		}

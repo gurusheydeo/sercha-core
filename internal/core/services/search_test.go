@@ -220,6 +220,11 @@ func TestSearchService_SearchBySource(t *testing.T) {
 	runtimeServices := createTestServices(embeddingService)
 	svc := createTestSearchService(searchEngine, documentStore, runtimeServices)
 
+	// Save documents for enrichment
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-1", SourceID: "source-1", Title: "Doc 1"})
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-2", SourceID: "source-2", Title: "Doc 2"})
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-3", SourceID: "source-1", Title: "Doc 3"})
+
 	// Index chunks for different sources
 	chunks := []*domain.Chunk{
 		{

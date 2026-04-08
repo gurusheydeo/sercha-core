@@ -33,7 +33,7 @@ func NewCapabilitiesService(
 }
 
 // GetCapabilities returns information about available features.
-func (s *capabilitiesService) GetCapabilities(ctx context.Context) (*driving.CapabilitiesResponse, error) {
+func (s *capabilitiesService) GetCapabilities(ctx context.Context, teamID string) (*driving.CapabilitiesResponse, error) {
 	capabilities := s.configProvider.GetCapabilities()
 
 	hasEmbeddings := len(capabilities.EmbeddingProviders) > 0
@@ -46,10 +46,17 @@ func (s *capabilitiesService) GetCapabilities(ctx context.Context) (*driving.Cap
 		domain.CapabilityVectorSearch:      hasEmbeddings && capabilities.VectorStoreAvailable,
 	}
 
-	// Get team preferences (use default if not found)
-	// NOTE: GetCapabilities doesn't have teamID context - for now resolve without preferences
-	// Preferences affect "enabled" state; here we report availability
-	resolved := domain.ResolveCapabilities(nil, available)
+	// Fetch team preferences to merge with availability
+	var prefs *domain.CapabilityPreferences
+	if teamID != "" {
+		p, err := s.capabilityStore.GetPreferences(ctx, teamID)
+		if err == nil {
+			prefs = p
+		}
+		// If error or not found, prefs stays nil → ResolveCapabilities uses factory defaults
+	}
+
+	resolved := domain.ResolveCapabilities(prefs, available)
 
 	// Build features from resolved capabilities
 	features := driving.FeaturesCapability{}

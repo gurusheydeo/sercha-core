@@ -255,35 +255,15 @@ export interface SearchRequest {
   source_ids?: string[];
 }
 
-export interface SearchChunk {
-  id: string;
+export interface SearchResultItem {
   document_id: string;
   source_id: string;
-  content: string;
-  position: number;
-  start_char: number;
-  end_char: number;
-  created_at: string;
-}
-
-export interface SearchDocument {
-  id: string;
-  source_id: string;
-  external_id: string;
-  path: string;
   title: string;
+  path: string;
   mime_type: string;
-  metadata: Record<string, string>;
-  created_at: string;
-  updated_at: string;
-  indexed_at: string;
-}
-
-export interface SearchResultItem {
-  chunk: SearchChunk;
-  document: SearchDocument;
+  snippet: string;
   score: number;
-  highlights?: string[];
+  indexed_at: string;
 }
 
 export interface SearchResponse {
@@ -385,7 +365,7 @@ export interface Document {
   external_id: string;
   title: string;
   url?: string;
-  content_type: string;
+  mime_type: string;
   metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -773,10 +753,11 @@ export async function getDocumentURL(id: string): Promise<string> {
 
 // ========== Search API ==========
 
-export async function search(data: SearchRequest): Promise<SearchResponse> {
+export async function search(data: SearchRequest, signal?: AbortSignal): Promise<SearchResponse> {
   return apiFetch<SearchResponse>("/api/v1/search", {
     method: "POST",
     body: JSON.stringify(data),
+    signal,
   });
 }
 

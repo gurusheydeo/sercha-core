@@ -187,6 +187,10 @@ func main() {
 			pgvectorAdapter.Close()
 			pgvectorAdapter = nil
 		} else {
+			// Ensure the embeddings table exists
+			if err := pgvectorAdapter.EnsureTable(ctx); err != nil {
+				log.Fatalf("Failed to ensure pgvector embeddings table: %v", err)
+			}
 			vectorIndex = pgvectorAdapter
 			cfg.VectorStoreAvailable = true
 			log.Printf("pgvector connected: %s (dimensions: %d)", cfg.PgvectorURL, cfg.PgvectorDimensions)
@@ -333,8 +337,8 @@ func main() {
 	if err := stageRegistry.Register(indexingstages.NewEmbedderFactory()); err != nil {
 		log.Fatalf("Failed to register embedder stage: %v", err)
 	}
-	if err := stageRegistry.Register(indexingstages.NewBM25LoaderFactory()); err != nil {
-		log.Fatalf("Failed to register bm25-loader stage: %v", err)
+	if err := stageRegistry.Register(indexingstages.NewDocLoaderFactory()); err != nil {
+		log.Fatalf("Failed to register doc-loader stage: %v", err)
 	}
 	if err := stageRegistry.Register(indexingstages.NewVectorLoaderFactory()); err != nil {
 		log.Fatalf("Failed to register vector-loader stage: %v", err)
@@ -410,8 +414,8 @@ func main() {
 		Name: "Default Indexing Pipeline",
 		Type: pipeline.PipelineTypeIndexing,
 		Stages: []pipeline.StageConfig{
-			{StageID: "chunker", Enabled: true, Parameters: map[string]any{"chunk_size": 512}},
-			{StageID: "bm25-loader", Enabled: true},
+			{StageID: "doc-loader", Enabled: true},
+			{StageID: "chunker", Enabled: true, Parameters: map[string]any{"chunk_size": 1024, "chunk_overlap": 100}},
 			{StageID: "embedder", Enabled: true},
 			{StageID: "vector-loader", Enabled: true},
 		},
@@ -423,19 +427,22 @@ func main() {
 		log.Fatalf("Failed to set default indexing pipeline: %v", err)
 	}
 
-	// Register default search pipeline (BM25-only, no embedding required)
-	searchPipelineBM25 := pipeline.PipelineDefinition{
+	// Register default search pipeline with all retriever variants.
+	// applyPreferences enables exactly one retriever based on the requested search mode.
+	searchPipeline := pipeline.PipelineDefinition{
 		ID:   "default-search",
-		Name: "Default Search Pipeline (BM25)",
+		Name: "Default Search Pipeline",
 		Type: pipeline.PipelineTypeSearch,
 		Stages: []pipeline.StageConfig{
 			{StageID: "query-parser", Enabled: true},
 			{StageID: "bm25-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
+			{StageID: "vector-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
+			{StageID: "hybrid-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
 			{StageID: "ranker", Enabled: true, Parameters: map[string]any{"limit": 20}},
 			{StageID: "presenter", Enabled: true, Parameters: map[string]any{"snippet_length": 200}},
 		},
 	}
-	if err := pipelineRegistry.Register(searchPipelineBM25); err != nil {
+	if err := pipelineRegistry.Register(searchPipeline); err != nil {
 		log.Fatalf("Failed to register search pipeline: %v", err)
 	}
 	if err := pipelineRegistry.SetDefault(pipeline.PipelineTypeSearch, "default-search"); err != nil {
@@ -456,6 +463,21 @@ func main() {
 	documentService := services.NewDocumentService(documentStore, chunkStore)
 	searchService := services.NewSearchService(searchEngine, documentStore, runtimeServices, searchExecutor, capabilityStore)
 	settingsService := services.NewSettingsService(settingsStore, aiFactory, cfg, runtimeServices, teamID)
+
+	// Restore AI services from saved settings (embedding, LLM)
+	// This ensures services are available after a restart without requiring
+	// the user to re-configure via the API.
+	if err := settingsService.RestoreAIServices(ctx); err != nil {
+		log.Printf("Warning: failed to restore AI services: %v", err)
+	} else {
+		if runtimeServices.EmbeddingService() != nil {
+			log.Println("Restored embedding service from saved settings")
+		}
+		if runtimeServices.LLMService() != nil {
+			log.Println("Restored LLM service from saved settings")
+		}
+	}
+
 	setupService := services.NewSetupService(userStore, sourceStore, teamID)
 
 	// Provider service (shows configuration status based on env vars)
@@ -502,6 +524,7 @@ func main() {
 		ChunkStore:       chunkStore,
 		SyncStore:        syncStore,
 		SearchEngine:     searchEngine,
+		VectorIndex:      vectorIndex,
 		ConnectorFactory: connectorFactory,
 		NormaliserReg:    normaliserRegistry,
 		Services:         runtimeServices,

@@ -67,6 +67,7 @@ type ExecutionTiming struct {
 type Chunk struct {
 	ID          string         `json:"id"`
 	DocumentID  string         `json:"document_id"`
+	SourceID    string         `json:"source_id"`
 	Content     string         `json:"content"`
 	Position    int            `json:"position"`     // Chunk index within document
 	StartOffset int            `json:"start_offset"` // Character offset from document start

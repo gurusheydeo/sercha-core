@@ -17,6 +17,8 @@ const (
 	DefaultTopK            = 100
 )
 
+// --- BM25 Retriever ---
+
 // BM25RetrieverFactory creates BM25 retriever stages.
 type BM25RetrieverFactory struct {
 	descriptor pipeline.StageDescriptor
@@ -40,8 +42,8 @@ func NewBM25RetrieverFactory() *BM25RetrieverFactory {
 	}
 }
 
-func (f *BM25RetrieverFactory) StageID() string                        { return f.descriptor.ID }
-func (f *BM25RetrieverFactory) Descriptor() pipeline.StageDescriptor   { return f.descriptor }
+func (f *BM25RetrieverFactory) StageID() string                            { return f.descriptor.ID }
+func (f *BM25RetrieverFactory) Descriptor() pipeline.StageDescriptor       { return f.descriptor }
 func (f *BM25RetrieverFactory) Validate(config pipeline.StageConfig) error { return nil }
 
 func (f *BM25RetrieverFactory) Create(config pipeline.StageConfig, capabilities *pipeline.CapabilitySet) (pipelineport.Stage, error) {
@@ -67,7 +69,7 @@ func (f *BM25RetrieverFactory) Create(config pipeline.StageConfig, capabilities 
 	}, nil
 }
 
-// BM25RetrieverStage retrieves candidates using BM25.
+// BM25RetrieverStage retrieves document-level candidates using BM25 text search.
 type BM25RetrieverStage struct {
 	descriptor   pipeline.StageDescriptor
 	searchEngine driven.SearchEngine
@@ -82,7 +84,6 @@ func (s *BM25RetrieverStage) Process(ctx context.Context, input any) (any, error
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "expected *pipeline.ParsedQuery"}
 	}
 
-	// Build query string from terms and phrases
 	queryStr := strings.Join(parsed.Terms, " ")
 	if len(parsed.Phrases) > 0 {
 		queryStr += " " + strings.Join(parsed.Phrases, " ")
@@ -93,14 +94,17 @@ func (s *BM25RetrieverStage) Process(ctx context.Context, input any) (any, error
 		Mode:  domain.SearchModeTextOnly,
 	}
 
-	results, _, err := s.searchEngine.Search(ctx, queryStr, nil, opts)
+	// Use SearchDocuments for document-level BM25 results
+	results, _, err := s.searchEngine.SearchDocuments(ctx, queryStr, opts)
 	if err != nil {
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "search failed", Err: err}
 	}
 
-	candidates := convertToCandidates(results, "bm25")
+	candidates := convertDocResultsToCandidates(results, "bm25")
 	return candidates, nil
 }
+
+// --- Vector Retriever ---
 
 // VectorRetrieverFactory creates vector retriever stages.
 type VectorRetrieverFactory struct {
@@ -118,7 +122,7 @@ func NewVectorRetrieverFactory() *VectorRetrieverFactory {
 			OutputShape: pipeline.ShapeCandidate,
 			Cardinality: pipeline.CardinalityOneToMany,
 			Capabilities: []pipeline.CapabilityRequirement{
-				{Type: pipeline.CapabilitySearchEngine, Mode: pipeline.CapabilityRequired},
+				{Type: pipeline.CapabilityVectorStore, Mode: pipeline.CapabilityRequired},
 				{Type: pipeline.CapabilityEmbedder, Mode: pipeline.CapabilityRequired},
 			},
 			Version: "1.0.0",
@@ -126,18 +130,18 @@ func NewVectorRetrieverFactory() *VectorRetrieverFactory {
 	}
 }
 
-func (f *VectorRetrieverFactory) StageID() string                        { return f.descriptor.ID }
-func (f *VectorRetrieverFactory) Descriptor() pipeline.StageDescriptor   { return f.descriptor }
+func (f *VectorRetrieverFactory) StageID() string                            { return f.descriptor.ID }
+func (f *VectorRetrieverFactory) Descriptor() pipeline.StageDescriptor       { return f.descriptor }
 func (f *VectorRetrieverFactory) Validate(config pipeline.StageConfig) error { return nil }
 
 func (f *VectorRetrieverFactory) Create(config pipeline.StageConfig, capabilities *pipeline.CapabilitySet) (pipelineport.Stage, error) {
-	searchInst, ok := capabilities.Get(pipeline.CapabilitySearchEngine)
+	vectorInst, ok := capabilities.Get(pipeline.CapabilityVectorStore)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "search_engine capability not available"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "vector_store capability not available"}
 	}
-	searchEngine, ok := searchInst.Instance.(driven.SearchEngine)
+	vectorIndex, ok := vectorInst.Instance.(driven.VectorIndex)
 	if !ok {
-		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid search_engine instance type"}
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid vector_store instance type"}
 	}
 
 	embedInst, ok := capabilities.Get(pipeline.CapabilityEmbedder)
@@ -155,19 +159,19 @@ func (f *VectorRetrieverFactory) Create(config pipeline.StageConfig, capabilitie
 	}
 
 	return &VectorRetrieverStage{
-		descriptor:   f.descriptor,
-		searchEngine: searchEngine,
-		embedder:     embedder,
-		topK:         topK,
+		descriptor:  f.descriptor,
+		vectorIndex: vectorIndex,
+		embedder:    embedder,
+		topK:        topK,
 	}, nil
 }
 
-// VectorRetrieverStage retrieves candidates using vector similarity.
+// VectorRetrieverStage retrieves chunk-level candidates using vector similarity via pgvector.
 type VectorRetrieverStage struct {
-	descriptor   pipeline.StageDescriptor
-	searchEngine driven.SearchEngine
-	embedder     driven.EmbeddingService
-	topK         int
+	descriptor  pipeline.StageDescriptor
+	vectorIndex driven.VectorIndex
+	embedder    driven.EmbeddingService
+	topK        int
 }
 
 func (s *VectorRetrieverStage) Descriptor() pipeline.StageDescriptor { return s.descriptor }
@@ -184,19 +188,17 @@ func (s *VectorRetrieverStage) Process(ctx context.Context, input any) (any, err
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "embedding failed", Err: err}
 	}
 
-	opts := domain.SearchOptions{
-		Limit: s.topK,
-		Mode:  domain.SearchModeSemanticOnly,
-	}
-
-	results, _, err := s.searchEngine.Search(ctx, parsed.Original, queryEmbedding, opts)
+	// Search pgvector for similar chunks (returns content alongside)
+	results, err := s.vectorIndex.SearchWithContent(ctx, queryEmbedding, s.topK)
 	if err != nil {
-		return nil, &StageError{Stage: s.descriptor.ID, Message: "search failed", Err: err}
+		return nil, &StageError{Stage: s.descriptor.ID, Message: "vector search failed", Err: err}
 	}
 
-	candidates := convertToCandidates(results, "vector")
+	candidates := convertVectorResultsToCandidates(results, "vector")
 	return candidates, nil
 }
+
+// --- Hybrid Retriever ---
 
 // HybridRetrieverFactory creates hybrid retriever stages.
 type HybridRetrieverFactory struct {
@@ -215,6 +217,7 @@ func NewHybridRetrieverFactory() *HybridRetrieverFactory {
 			Cardinality: pipeline.CardinalityOneToMany,
 			Capabilities: []pipeline.CapabilityRequirement{
 				{Type: pipeline.CapabilitySearchEngine, Mode: pipeline.CapabilityRequired},
+				{Type: pipeline.CapabilityVectorStore, Mode: pipeline.CapabilityRequired},
 				{Type: pipeline.CapabilityEmbedder, Mode: pipeline.CapabilityRequired},
 			},
 			Version: "1.0.0",
@@ -222,8 +225,8 @@ func NewHybridRetrieverFactory() *HybridRetrieverFactory {
 	}
 }
 
-func (f *HybridRetrieverFactory) StageID() string                        { return f.descriptor.ID }
-func (f *HybridRetrieverFactory) Descriptor() pipeline.StageDescriptor   { return f.descriptor }
+func (f *HybridRetrieverFactory) StageID() string                            { return f.descriptor.ID }
+func (f *HybridRetrieverFactory) Descriptor() pipeline.StageDescriptor       { return f.descriptor }
 func (f *HybridRetrieverFactory) Validate(config pipeline.StageConfig) error { return nil }
 
 func (f *HybridRetrieverFactory) Create(config pipeline.StageConfig, capabilities *pipeline.CapabilitySet) (pipelineport.Stage, error) {
@@ -234,6 +237,15 @@ func (f *HybridRetrieverFactory) Create(config pipeline.StageConfig, capabilitie
 	searchEngine, ok := searchInst.Instance.(driven.SearchEngine)
 	if !ok {
 		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid search_engine instance type"}
+	}
+
+	vectorInst, ok := capabilities.Get(pipeline.CapabilityVectorStore)
+	if !ok {
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "vector_store capability not available"}
+	}
+	vectorIndex, ok := vectorInst.Instance.(driven.VectorIndex)
+	if !ok {
+		return nil, &StageError{Stage: f.descriptor.ID, Message: "invalid vector_store instance type"}
 	}
 
 	embedInst, ok := capabilities.Get(pipeline.CapabilityEmbedder)
@@ -250,27 +262,24 @@ func (f *HybridRetrieverFactory) Create(config pipeline.StageConfig, capabilitie
 		topK = int(k)
 	}
 
-	alpha := 0.5
-	if a, ok := config.Parameters["alpha"].(float64); ok {
-		alpha = a
-	}
-
 	return &HybridRetrieverStage{
 		descriptor:   f.descriptor,
 		searchEngine: searchEngine,
+		vectorIndex:  vectorIndex,
 		embedder:     embedder,
 		topK:         topK,
-		alpha:        alpha,
 	}, nil
 }
 
-// HybridRetrieverStage retrieves candidates using hybrid search.
+// HybridRetrieverStage retrieves candidates using both BM25 (document-level) and vector (chunk-level).
+// BM25 results come from OpenSearch (full documents), vector results come from pgvector (chunks).
+// The ranker stage fuses both at document level using RRF.
 type HybridRetrieverStage struct {
 	descriptor   pipeline.StageDescriptor
 	searchEngine driven.SearchEngine
+	vectorIndex  driven.VectorIndex
 	embedder     driven.EmbeddingService
 	topK         int
-	alpha        float64 // Weight for semantic vs BM25 (0-1)
 }
 
 func (s *HybridRetrieverStage) Descriptor() pipeline.StageDescriptor { return s.descriptor }
@@ -281,47 +290,72 @@ func (s *HybridRetrieverStage) Process(ctx context.Context, input any) (any, err
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "expected *pipeline.ParsedQuery"}
 	}
 
-	// Generate query embedding
+	queryStr := parsed.Original
+
+	// BM25 search: document-level results from OpenSearch
+	bm25Opts := domain.SearchOptions{
+		Limit: s.topK,
+		Mode:  domain.SearchModeTextOnly,
+	}
+	bm25Results, _, err := s.searchEngine.SearchDocuments(ctx, queryStr, bm25Opts)
+	if err != nil {
+		return nil, &StageError{Stage: s.descriptor.ID, Message: "BM25 search failed", Err: err}
+	}
+
+	// Vector search: chunk-level results from pgvector
 	queryEmbedding, err := s.embedder.EmbedQuery(ctx, parsed.Original)
 	if err != nil {
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "embedding failed", Err: err}
 	}
 
-	opts := domain.SearchOptions{
-		Limit: s.topK,
-		Mode:  domain.SearchModeHybrid,
-	}
-
-	results, _, err := s.searchEngine.Search(ctx, parsed.Original, queryEmbedding, opts)
+	vectorResults, err := s.vectorIndex.SearchWithContent(ctx, queryEmbedding, s.topK)
 	if err != nil {
-		return nil, &StageError{Stage: s.descriptor.ID, Message: "search failed", Err: err}
+		return nil, &StageError{Stage: s.descriptor.ID, Message: "vector search failed", Err: err}
 	}
 
-	candidates := convertToCandidates(results, "hybrid")
+	// Tag each set with its source for RRF fusion
+	bm25Candidates := convertDocResultsToCandidates(bm25Results, "bm25")
+	vectorCandidates := convertVectorResultsToCandidates(vectorResults, "vector")
+
+	// Merge both sets — the ranker will handle document-level dedup and fusion
+	candidates := append(bm25Candidates, vectorCandidates...)
 	return candidates, nil
 }
 
-// convertToCandidates converts ranked chunks to pipeline candidates.
-func convertToCandidates(results []*domain.RankedChunk, source string) []*pipeline.Candidate {
+// --- Conversion helpers ---
+
+// convertDocResultsToCandidates converts document-level BM25 results to pipeline candidates.
+func convertDocResultsToCandidates(results []driven.DocumentResult, source string) []*pipeline.Candidate {
 	candidates := make([]*pipeline.Candidate, len(results))
 	for i, r := range results {
-		var documentID, chunkID, sourceID, content string
-		if r.Chunk != nil {
-			chunkID = r.Chunk.ID
-			documentID = r.Chunk.DocumentID
-			sourceID = r.Chunk.SourceID
-			content = r.Chunk.Content
+		candidates[i] = &pipeline.Candidate{
+			DocumentID: r.DocumentID,
+			ChunkID:    "", // Document-level result, no chunk
+			SourceID:   r.SourceID,
+			Content:    r.Content,
+			Score:      r.Score,
+			Source:     source,
+			Metadata:   map[string]any{"title": r.Title},
 		}
-		if r.Document != nil && documentID == "" {
-			documentID = r.Document.ID
-			sourceID = r.Document.SourceID
+	}
+	return candidates
+}
+
+// convertVectorResultsToCandidates converts chunk-level vector results to pipeline candidates.
+func convertVectorResultsToCandidates(results []driven.VectorSearchResult, source string) []*pipeline.Candidate {
+	candidates := make([]*pipeline.Candidate, len(results))
+	for i, r := range results {
+		// Convert distance to similarity score (1 - cosine_distance for cosine)
+		score := 1.0 - r.Distance
+		if score < 0 {
+			score = 0
 		}
 		candidates[i] = &pipeline.Candidate{
-			DocumentID: documentID,
-			ChunkID:    chunkID,
-			SourceID:   sourceID,
-			Content:    content,
-			Score:      r.Score,
+			DocumentID: r.DocumentID,
+			ChunkID:    r.ChunkID,
+			SourceID:   "", // pgvector doesn't store source_id; ranker/presenter can resolve via DocumentID
+			Content:    r.Content,
+			Score:      score,
 			Source:     source,
 			Metadata:   make(map[string]any),
 		}

@@ -210,9 +210,6 @@ func TestVectorIndex_IndexValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create VectorIndex with nil pool to test validation only
-			// We only test dimension mismatch errors since matching dimensions
-			// will proceed to pool operations which require a real connection
 			vi := &VectorIndex{
 				pool:       nil,
 				dimensions: tt.dimensions,
@@ -221,7 +218,7 @@ func TestVectorIndex_IndexValidation(t *testing.T) {
 
 			embedding := make([]float32, tt.embeddingLen)
 
-			err := vi.Index(context.Background(), "test-id", embedding)
+			err := vi.Index(context.Background(), "test-id", "doc-1", embedding)
 
 			if tt.wantErr {
 				if err == nil {
@@ -241,42 +238,56 @@ func TestVectorIndex_IndexBatchValidation(t *testing.T) {
 		name        string
 		dimensions  int
 		ids         []string
+		documentIDs []string
 		embeddings  [][]float32
 		wantErr     bool
 		errContains string
 	}{
 		{
-			name:       "empty batch should succeed",
-			dimensions: 1536,
-			ids:        []string{},
-			embeddings: [][]float32{},
-			wantErr:    false,
+			name:        "empty batch should succeed",
+			dimensions:  1536,
+			ids:         []string{},
+			documentIDs: []string{},
+			embeddings:  [][]float32{},
+			wantErr:     false,
 		},
 		{
 			name:        "ids and embeddings count mismatch",
 			dimensions:  1536,
 			ids:         []string{"id1", "id2"},
+			documentIDs: []string{"doc1", "doc2"},
 			embeddings:  [][]float32{make([]float32, 1536)},
 			wantErr:     true,
 			errContains: "ids and embeddings count mismatch",
 		},
 		{
-			name:       "wrong embedding dimension in batch",
-			dimensions: 1536,
-			ids:        []string{"id1"},
+			name:        "ids and documentIDs count mismatch",
+			dimensions:  1536,
+			ids:         []string{"id1", "id2"},
+			documentIDs: []string{"doc1"},
+			embeddings:  [][]float32{make([]float32, 1536), make([]float32, 1536)},
+			wantErr:     true,
+			errContains: "ids and documentIDs count mismatch",
+		},
+		{
+			name:        "wrong embedding dimension in batch",
+			dimensions:  1536,
+			ids:         []string{"id1"},
+			documentIDs: []string{"doc1"},
 			embeddings: [][]float32{
-				make([]float32, 100), // wrong dimension
+				make([]float32, 100),
 			},
 			wantErr:     true,
 			errContains: "embedding 0 dimension mismatch",
 		},
 		{
-			name:       "second embedding wrong dimension",
-			dimensions: 1536,
-			ids:        []string{"id1", "id2"},
+			name:        "second embedding wrong dimension",
+			dimensions:  1536,
+			ids:         []string{"id1", "id2"},
+			documentIDs: []string{"doc1", "doc2"},
 			embeddings: [][]float32{
 				make([]float32, 1536),
-				make([]float32, 100), // wrong dimension
+				make([]float32, 100),
 			},
 			wantErr:     true,
 			errContains: "embedding 1 dimension mismatch",
@@ -291,7 +302,9 @@ func TestVectorIndex_IndexBatchValidation(t *testing.T) {
 				distOp:     "<=>",
 			}
 
-			err := vi.IndexBatch(context.Background(), tt.ids, tt.embeddings)
+			// Build contents slice matching ids length
+		contents := make([]string, len(tt.ids))
+		err := vi.IndexBatch(context.Background(), tt.ids, tt.documentIDs, contents, tt.embeddings)
 
 			if tt.wantErr {
 				if err == nil {

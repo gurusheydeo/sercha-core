@@ -29,11 +29,14 @@ type Chunk struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
-// DocumentContent holds the full content of a document
+// DocumentContent holds the full content of a document for indexing.
 type DocumentContent struct {
 	DocumentID string            `json:"document_id"`
+	SourceID   string            `json:"source_id"`
 	Title      string            `json:"title"`
 	Body       string            `json:"body"`
+	Path       string            `json:"path"`
+	MimeType   string            `json:"mime_type"`
 	Metadata   map[string]string `json:"metadata"`
 }
 

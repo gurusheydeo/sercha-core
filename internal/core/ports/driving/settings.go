@@ -40,6 +40,9 @@ type SettingsService interface {
 
 	// GetAIProviders returns static metadata about available AI providers
 	GetAIProviders(ctx context.Context) (*AIProvidersResponse, error)
+
+	// RestoreAIServices restores AI services from persisted settings on startup.
+	RestoreAIServices(ctx context.Context) error
 }
 
 // UpdateAISettingsRequest represents a request to update AI settings

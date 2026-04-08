@@ -6,39 +6,121 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/pgvector/pgvector-go"
-	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
+	driven "github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
 
 // Ensure interface compliance at compile time
 var _ driven.VectorIndex = (*VectorIndex)(nil)
 
-// Index adds or updates a single embedding for a chunk
-func (v *VectorIndex) Index(ctx context.Context, id string, embedding []float32) error {
-	if len(embedding) != v.dimensions {
-		return fmt.Errorf("embedding dimension mismatch: expected %d, got %d", v.dimensions, len(embedding))
+// EnsureTable creates the embeddings table if it doesn't exist.
+// Called during startup to ensure the table is ready.
+func (v *VectorIndex) EnsureTable(ctx context.Context) error {
+	query := fmt.Sprintf(`
+		CREATE TABLE IF NOT EXISTS embeddings (
+			chunk_id TEXT PRIMARY KEY,
+			document_id TEXT NOT NULL,
+			content TEXT NOT NULL DEFAULT '',
+			embedding vector(%d) NOT NULL
+		)
+	`, v.dimensions)
+
+	if _, err := v.pool.Exec(ctx, query); err != nil {
+		return fmt.Errorf("failed to create embeddings table: %w", err)
 	}
 
-	// Convert to pgvector type
-	vec := pgvector.NewVector(embedding)
+	// Migration: add content column if table existed before this change
+	_, _ = v.pool.Exec(ctx, `ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS content TEXT NOT NULL DEFAULT ''`)
 
-	// Update the embedding column in the chunks table
-	query := `UPDATE chunks SET embedding = $1 WHERE id = $2`
-	result, err := v.pool.Exec(ctx, query, vec, id)
+	// Create index on document_id for deletion queries
+	_, err := v.pool.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_embeddings_document_id ON embeddings(document_id)`)
 	if err != nil {
-		return fmt.Errorf("failed to index embedding: %w", err)
+		return fmt.Errorf("failed to create document_id index: %w", err)
 	}
 
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("chunk not found: %s", id)
+	// Create HNSW vector index for similarity search
+	idxQuery := fmt.Sprintf(`
+		CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON embeddings
+		USING hnsw (embedding vector_cosine_ops)
+	`)
+	if _, err := v.pool.Exec(ctx, idxQuery); err != nil {
+		return fmt.Errorf("failed to create vector index: %w", err)
 	}
 
 	return nil
 }
 
-// IndexBatch adds or updates multiple embeddings using batch operations
-func (v *VectorIndex) IndexBatch(ctx context.Context, ids []string, embeddings [][]float32) error {
+// Index inserts or updates a single embedding
+func (v *VectorIndex) Index(ctx context.Context, id string, documentID string, embedding []float32) error {
+	if len(embedding) != v.dimensions {
+		return fmt.Errorf("embedding dimension mismatch: expected %d, got %d", v.dimensions, len(embedding))
+	}
+
+	vec := pgvector.NewVector(embedding)
+
+	query := `
+		INSERT INTO embeddings (chunk_id, document_id, embedding)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (chunk_id) DO UPDATE SET embedding = EXCLUDED.embedding
+	`
+	_, err := v.pool.Exec(ctx, query, id, documentID, vec)
+	if err != nil {
+		return fmt.Errorf("failed to index embedding: %w", err)
+	}
+
+	return nil
+}
+
+// SearchWithContent finds similar vectors and returns chunk content alongside IDs/distances.
+func (v *VectorIndex) SearchWithContent(ctx context.Context, embedding []float32, k int) ([]driven.VectorSearchResult, error) {
+	if len(embedding) != v.dimensions {
+		return nil, fmt.Errorf("embedding dimension mismatch: expected %d, got %d", v.dimensions, len(embedding))
+	}
+
+	if k <= 0 {
+		return nil, fmt.Errorf("k must be positive, got %d", k)
+	}
+
+	vec := pgvector.NewVector(embedding)
+
+	query := fmt.Sprintf(`
+		SELECT chunk_id, document_id, content, embedding %s $1::vector AS distance
+		FROM embeddings
+		ORDER BY distance
+		LIMIT $2
+	`, v.distOp)
+
+	rows, err := v.pool.Query(ctx, query, vec, k)
+	if err != nil {
+		return nil, fmt.Errorf("search query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var results []driven.VectorSearchResult
+	for rows.Next() {
+		var r driven.VectorSearchResult
+		if err := rows.Scan(&r.ChunkID, &r.DocumentID, &r.Content, &r.Distance); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results = append(results, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	return results, nil
+}
+
+// IndexBatch inserts or updates multiple embeddings with their chunk content using batch operations
+func (v *VectorIndex) IndexBatch(ctx context.Context, ids []string, documentIDs []string, contents []string, embeddings [][]float32) error {
 	if len(ids) != len(embeddings) {
 		return fmt.Errorf("ids and embeddings count mismatch: %d vs %d", len(ids), len(embeddings))
+	}
+	if len(ids) != len(documentIDs) {
+		return fmt.Errorf("ids and documentIDs count mismatch: %d vs %d", len(ids), len(documentIDs))
+	}
+	if len(ids) != len(contents) {
+		return fmt.Errorf("ids and contents count mismatch: %d vs %d", len(ids), len(contents))
 	}
 
 	if len(ids) == 0 {
@@ -52,34 +134,29 @@ func (v *VectorIndex) IndexBatch(ctx context.Context, ids []string, embeddings [
 		}
 	}
 
-	// Use pgx batch for efficient bulk operations
 	batch := &pgx.Batch{}
-	query := `UPDATE chunks SET embedding = $1 WHERE id = $2`
+	query := `
+		INSERT INTO embeddings (chunk_id, document_id, content, embedding)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (chunk_id) DO UPDATE SET content = EXCLUDED.content, embedding = EXCLUDED.embedding
+	`
 
 	for i, id := range ids {
 		vec := pgvector.NewVector(embeddings[i])
-		batch.Queue(query, vec, id)
+		batch.Queue(query, id, documentIDs[i], contents[i], vec)
 	}
 
-	// Execute batch
 	br := v.pool.SendBatch(ctx, batch)
 	defer br.Close()
 
-	// Check results
 	var errs []error
 	for i := 0; i < len(ids); i++ {
-		result, err := br.Exec()
-		if err != nil {
+		if _, err := br.Exec(); err != nil {
 			errs = append(errs, fmt.Errorf("batch item %d (%s): %w", i, ids[i], err))
-			continue
-		}
-		if result.RowsAffected() == 0 {
-			errs = append(errs, fmt.Errorf("batch item %d: chunk not found: %s", i, ids[i]))
 		}
 	}
 
 	if len(errs) > 0 {
-		// Return first error with count of total errors
 		return fmt.Errorf("batch indexing had %d errors, first: %w", len(errs), errs[0])
 	}
 
@@ -96,16 +173,11 @@ func (v *VectorIndex) Search(ctx context.Context, embedding []float32, k int) ([
 		return nil, nil, fmt.Errorf("k must be positive, got %d", k)
 	}
 
-	// Convert to pgvector type
 	vec := pgvector.NewVector(embedding)
 
-	// Build query with parameterized distance operator
-	// Note: We use string formatting for the operator since it can't be parameterized
-	// The operator is validated in New() so this is safe
 	query := fmt.Sprintf(`
-		SELECT id, embedding %s $1::vector AS distance
-		FROM chunks
-		WHERE embedding IS NOT NULL
+		SELECT chunk_id, embedding %s $1::vector AS distance
+		FROM embeddings
 		ORDER BY distance
 		LIMIT $2
 	`, v.distOp)
@@ -136,38 +208,55 @@ func (v *VectorIndex) Search(ctx context.Context, embedding []float32, k int) ([
 	return ids, distances, nil
 }
 
-// Delete removes the embedding for a single chunk
+// Delete removes a single embedding by chunk ID
 func (v *VectorIndex) Delete(ctx context.Context, id string) error {
-	query := `UPDATE chunks SET embedding = NULL WHERE id = $1`
-	_, err := v.pool.Exec(ctx, query, id)
+	_, err := v.pool.Exec(ctx, `DELETE FROM embeddings WHERE chunk_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete embedding: %w", err)
 	}
 	return nil
 }
 
-// DeleteBatch removes embeddings for multiple chunks
+// DeleteBatch removes multiple embeddings by chunk IDs
 func (v *VectorIndex) DeleteBatch(ctx context.Context, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
-	query := `UPDATE chunks SET embedding = NULL WHERE id = ANY($1)`
-	_, err := v.pool.Exec(ctx, query, ids)
+	_, err := v.pool.Exec(ctx, `DELETE FROM embeddings WHERE chunk_id = ANY($1)`, ids)
 	if err != nil {
 		return fmt.Errorf("failed to delete embeddings: %w", err)
 	}
 	return nil
 }
 
+// DeleteByDocument removes all embeddings for a document
+func (v *VectorIndex) DeleteByDocument(ctx context.Context, documentID string) error {
+	_, err := v.pool.Exec(ctx, `DELETE FROM embeddings WHERE document_id = $1`, documentID)
+	if err != nil {
+		return fmt.Errorf("failed to delete embeddings by document: %w", err)
+	}
+	return nil
+}
+
+// DeleteByDocuments removes all embeddings for multiple documents in a single operation
+func (v *VectorIndex) DeleteByDocuments(ctx context.Context, documentIDs []string) error {
+	if len(documentIDs) == 0 {
+		return nil
+	}
+	_, err := v.pool.Exec(ctx, `DELETE FROM embeddings WHERE document_id = ANY($1)`, documentIDs)
+	if err != nil {
+		return fmt.Errorf("failed to delete embeddings by documents: %w", err)
+	}
+	return nil
+}
+
 // HealthCheck verifies the connection and vector extension availability
 func (v *VectorIndex) HealthCheck(ctx context.Context) error {
-	// Test connection
 	if err := v.pool.Ping(ctx); err != nil {
 		return fmt.Errorf("connection check failed: %w", err)
 	}
 
-	// Verify vector extension is available
 	var extName string
 	err := v.pool.QueryRow(ctx, `SELECT extname FROM pg_extension WHERE extname = 'vector'`).Scan(&extName)
 	if err != nil {

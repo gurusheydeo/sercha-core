@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors"
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
 	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
 )
@@ -280,7 +281,7 @@ func (c *Connector) generateExternalID(relPath string) string {
 
 // fileToDocument converts file info to domain document.
 func (c *Connector) fileToDocument(fullPath, relPath string, info os.FileInfo) *domain.Document {
-	mimeType := guessMimeType(fullPath)
+	mimeType := connectors.GuessMimeType(fullPath)
 
 	metadata := map[string]string{
 		"file_path": relPath,
@@ -302,69 +303,3 @@ func (c *Connector) fileToDocument(fullPath, relPath string, info os.FileInfo) *
 	}
 }
 
-// guessMimeType guesses MIME type from file extension.
-func guessMimeType(path string) string {
-	ext := strings.ToLower(filepath.Ext(path))
-	mimeTypes := map[string]string{
-		".md":         "text/markdown",
-		".markdown":   "text/markdown",
-		".txt":        "text/plain",
-		".text":       "text/plain",
-		".go":         "text/x-go",
-		".py":         "text/x-python",
-		".js":         "application/javascript",
-		".jsx":        "application/javascript",
-		".mjs":        "application/javascript",
-		".ts":         "application/typescript",
-		".tsx":        "application/typescript",
-		".json":       "application/json",
-		".yaml":       "text/yaml",
-		".yml":        "text/yaml",
-		".toml":       "text/x-toml",
-		".html":       "text/html",
-		".htm":        "text/html",
-		".css":        "text/css",
-		".scss":       "text/x-scss",
-		".sass":       "text/x-sass",
-		".rs":         "text/x-rust",
-		".java":       "text/x-java",
-		".rb":         "text/x-ruby",
-		".sh":         "text/x-shellscript",
-		".bash":       "text/x-shellscript",
-		".zsh":        "text/x-shellscript",
-		".sql":        "application/sql",
-		".xml":        "application/xml",
-		".c":          "text/x-c",
-		".h":          "text/x-c",
-		".cpp":        "text/x-c++",
-		".hpp":        "text/x-c++",
-		".cc":         "text/x-c++",
-		".cs":         "text/x-csharp",
-		".swift":      "text/x-swift",
-		".kt":         "text/x-kotlin",
-		".kts":        "text/x-kotlin",
-		".scala":      "text/x-scala",
-		".php":        "text/x-php",
-		".lua":        "text/x-lua",
-		".r":          "text/x-r",
-		".dockerfile": "text/x-dockerfile",
-		".makefile":   "text/x-makefile",
-	}
-
-	if mime, ok := mimeTypes[ext]; ok {
-		return mime
-	}
-
-	// Check extensionless files
-	base := strings.ToLower(filepath.Base(path))
-	switch base {
-	case "dockerfile":
-		return "text/x-dockerfile"
-	case "makefile":
-		return "text/x-makefile"
-	case "readme":
-		return "text/plain"
-	}
-
-	return "text/plain"
-}

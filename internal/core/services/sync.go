@@ -31,6 +31,7 @@ type SyncOrchestrator struct {
 	chunkStore       driven.ChunkStore
 	syncStore        driven.SyncStateStore
 	searchEngine     driven.SearchEngine
+	vectorIndex      driven.VectorIndex
 	connectorFactory driven.ConnectorFactory
 	normaliserReg    driven.NormaliserRegistry
 	services         *runtime.Services
@@ -47,6 +48,7 @@ type SyncOrchestratorConfig struct {
 	ChunkStore       driven.ChunkStore
 	SyncStore        driven.SyncStateStore
 	SearchEngine     driven.SearchEngine
+	VectorIndex      driven.VectorIndex
 	ConnectorFactory driven.ConnectorFactory
 	NormaliserReg    driven.NormaliserRegistry
 	Services         *runtime.Services
@@ -74,6 +76,7 @@ func NewSyncOrchestrator(cfg SyncOrchestratorConfig) *SyncOrchestrator {
 		chunkStore:       cfg.ChunkStore,
 		syncStore:        cfg.SyncStore,
 		searchEngine:     cfg.SearchEngine,
+		vectorIndex:      cfg.VectorIndex,
 		connectorFactory: cfg.ConnectorFactory,
 		normaliserReg:    cfg.NormaliserReg,
 		services:         cfg.Services,
@@ -244,6 +247,30 @@ func (o *SyncOrchestrator) syncContainer(
 	stats := &domain.SyncStats{}
 	var lastCursor string
 
+	// Full sync (no cursor): wipe all existing indexed data for this source
+	// to prevent orphaned chunks from accumulating across re-syncs.
+	if cursor == "" {
+		o.logger.Info("full sync: clearing existing indexed data", "source_id", source.ID)
+		if o.searchEngine != nil {
+			if err := o.searchEngine.DeleteBySource(ctx, source.ID); err != nil {
+				o.logger.Warn("failed to clear search engine data for source", "source_id", source.ID, "error", err)
+			}
+		}
+		if o.vectorIndex != nil {
+			// Delete embeddings for all documents in this source
+			docs, err := o.documentStore.GetBySource(ctx, source.ID, 10000, 0)
+			if err == nil {
+				docIDs := make([]string, len(docs))
+				for i, d := range docs {
+					docIDs[i] = d.ID
+				}
+				if len(docIDs) > 0 {
+					_ = o.vectorIndex.DeleteByDocuments(ctx, docIDs)
+				}
+			}
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -260,7 +287,22 @@ func (o *SyncOrchestrator) syncContainer(
 			break
 		}
 
+		// Collect document IDs that need old-chunk cleanup (updates/modifications)
+		var updateDocIDs []string
+		for _, change := range changes {
+			if change.Type == domain.ChangeTypeModified {
+				existingDoc, _ := o.documentStore.GetByExternalID(ctx, source.ID, change.ExternalID)
+				if existingDoc != nil {
+					updateDocIDs = append(updateDocIDs, existingDoc.ID)
+				}
+			}
+		}
+
+		// Bulk delete old chunks/embeddings for all updates in one shot
+		o.cleanupOldChunksBatch(ctx, updateDocIDs)
+
 		// Process each document
+		errorsBefore := stats.Errors
 		for _, change := range changes {
 			if err := o.processChange(ctx, source, change, stats); err != nil {
 				o.logger.Warn("failed to process change",
@@ -273,7 +315,16 @@ func (o *SyncOrchestrator) syncContainer(
 			}
 		}
 
-		lastCursor = nextCursor
+		// Only advance cursor if all documents in this batch succeeded
+		if stats.Errors == errorsBefore {
+			lastCursor = nextCursor
+		} else {
+			o.logger.Warn("not advancing cursor due to failed documents",
+				"source_id", source.ID,
+				"container_id", containerID,
+				"failed_count", stats.Errors-errorsBefore,
+			)
+		}
 
 		// No more pages
 		if nextCursor == "" || nextCursor == cursor {
@@ -339,34 +390,64 @@ func (o *SyncOrchestrator) processChange(
 	}
 }
 
-// processDelete handles document deletion.
+// processDelete handles document deletion across all storage layers.
 func (o *SyncOrchestrator) processDelete(
 	ctx context.Context,
 	sourceID string,
 	change *domain.Change,
 	stats *domain.SyncStats,
 ) error {
-	// Find document by external ID
 	doc, err := o.documentStore.GetByExternalID(ctx, sourceID, change.ExternalID)
 	if err != nil {
-		// Document might not exist, which is fine
 		return nil
 	}
 
-	// Delete from search engine
+	// Delete embeddings from vector index
+	if o.vectorIndex != nil {
+		if err := o.vectorIndex.DeleteByDocument(ctx, doc.ID); err != nil {
+			o.logger.Warn("failed to delete embeddings", "doc_id", doc.ID, "error", err)
+		}
+	}
+
+	// Delete from search engine (OpenSearch)
 	if o.searchEngine != nil {
 		if err := o.searchEngine.DeleteByDocument(ctx, doc.ID); err != nil {
 			o.logger.Warn("failed to delete from search engine", "doc_id", doc.ID, "error", err)
 		}
 	}
 
-	// Delete from document store
+	// Delete document (source of truth)
 	if err := o.documentStore.Delete(ctx, doc.ID); err != nil {
 		return fmt.Errorf("failed to delete document: %w", err)
 	}
 
 	stats.DocumentsDeleted++
 	return nil
+}
+
+// cleanupOldChunksBatch removes old search index entries and embeddings for multiple
+// documents in a single bulk operation. This is much faster than per-document deletes.
+// Note: Chunks live in OpenSearch (not PostgreSQL), embeddings live in pgvector.
+func (o *SyncOrchestrator) cleanupOldChunksBatch(ctx context.Context, documentIDs []string) {
+	if len(documentIDs) == 0 {
+		return
+	}
+
+	o.logger.Info("cleaning up old chunks before re-indexing", "document_count", len(documentIDs))
+
+	// Bulk delete from search engine (OpenSearch)
+	if o.searchEngine != nil {
+		if err := o.searchEngine.DeleteByDocuments(ctx, documentIDs); err != nil {
+			o.logger.Warn("failed to bulk delete old chunks from search engine", "error", err)
+		}
+	}
+
+	// Bulk delete embeddings from vector index (pgvector)
+	if o.vectorIndex != nil {
+		if err := o.vectorIndex.DeleteByDocuments(ctx, documentIDs); err != nil {
+			o.logger.Warn("failed to bulk delete old embeddings", "error", err)
+		}
+	}
 }
 
 // processAddOrUpdate handles document creation or update.

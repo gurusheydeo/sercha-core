@@ -354,15 +354,19 @@ func (m *mockSettingsService) GetAIProviders(ctx context.Context) (*driving.AIPr
 	return nil, errors.New("not implemented")
 }
 
+func (m *mockSettingsService) RestoreAIServices(ctx context.Context) error {
+	return nil
+}
+
 type mockCapabilitiesService struct {
-	getCapabilitiesFn           func(ctx context.Context) (*driving.CapabilitiesResponse, error)
+	getCapabilitiesFn           func(ctx context.Context, teamID string) (*driving.CapabilitiesResponse, error)
 	getCapabilityPreferencesFn  func(ctx context.Context, teamID string) (*domain.CapabilityPreferences, error)
 	updateCapabilityPreferencesFn func(ctx context.Context, teamID string, req driving.UpdateCapabilityPreferencesRequest) (*domain.CapabilityPreferences, error)
 }
 
-func (m *mockCapabilitiesService) GetCapabilities(ctx context.Context) (*driving.CapabilitiesResponse, error) {
+func (m *mockCapabilitiesService) GetCapabilities(ctx context.Context, teamID string) (*driving.CapabilitiesResponse, error) {
 	if m.getCapabilitiesFn != nil {
-		return m.getCapabilitiesFn(ctx)
+		return m.getCapabilitiesFn(ctx, teamID)
 	}
 	return &driving.CapabilitiesResponse{
 		AIProviders: driving.AIProvidersCapability{
@@ -1288,7 +1292,7 @@ func TestHandleSearch_Success(t *testing.T) {
 				TotalCount: 10,
 				Took:       50 * time.Millisecond,
 				Mode:       opts.Mode,
-				Results:    []*domain.RankedChunk{},
+				Results:    []*domain.SearchResultItem{},
 			}, nil
 		},
 	}

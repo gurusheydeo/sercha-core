@@ -169,8 +169,8 @@ func TestSearchWithPipeline_Success(t *testing.T) {
 	if result.Results[0].Score != 0.95 {
 		t.Errorf("expected first result score=0.95, got %f", result.Results[0].Score)
 	}
-	if result.Results[0].Chunk.Content != "Snippet 1" {
-		t.Errorf("expected snippet to be in chunk content, got %s", result.Results[0].Chunk.Content)
+	if result.Results[0].Snippet != "Snippet 1" {
+		t.Errorf("expected snippet 'Snippet 1', got %s", result.Results[0].Snippet)
 	}
 }
 
@@ -301,14 +301,11 @@ func TestSearchWithPipeline_DocumentEnrichment(t *testing.T) {
 	if len(result.Results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(result.Results))
 	}
-	if result.Results[0].Document == nil {
-		t.Fatal("expected document to be enriched")
+	if result.Results[0].Title != "Full Document Title" {
+		t.Errorf("expected enriched document title, got %s", result.Results[0].Title)
 	}
-	if result.Results[0].Document.Title != "Full Document Title" {
-		t.Errorf("expected enriched document title, got %s", result.Results[0].Document.Title)
-	}
-	if result.Results[0].Document.Path != "/path/to/doc" {
-		t.Errorf("expected enriched document path, got %s", result.Results[0].Document.Path)
+	if result.Results[0].Path != "/path/to/doc" {
+		t.Errorf("expected enriched document path, got %s", result.Results[0].Path)
 	}
 }
 
@@ -421,6 +418,9 @@ func TestSearchBySource_WithPipeline(t *testing.T) {
 	}
 	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
+	// Save document for enrichment
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-1", SourceID: "source-1", Title: "Doc 1"})
+
 	result, err := svc.SearchBySource(context.Background(), "source-1", "test", domain.SearchOptions{
 		Mode:  domain.SearchModeHybrid,
 		Limit: 10,
@@ -475,6 +475,9 @@ func TestSearchWithPipeline_ResultMapping(t *testing.T) {
 	}
 	svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil)
 
+	// Save document for enrichment
+	_ = documentStore.Save(context.Background(), &domain.Document{ID: "doc-123", SourceID: "source-789", Title: "Test Title"})
+
 	result, err := svc.Search(context.Background(), "test", domain.SearchOptions{
 		Mode:  domain.SearchModeHybrid,
 		Limit: 10,
@@ -489,23 +492,17 @@ func TestSearchWithPipeline_ResultMapping(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(result.Results))
 	}
 
-	rankedChunk := result.Results[0]
-	if rankedChunk.Score != 0.87 {
-		t.Errorf("expected score=0.87, got %f", rankedChunk.Score)
+	item := result.Results[0]
+	if item.Score != 0.87 {
+		t.Errorf("expected score=0.87, got %f", item.Score)
 	}
-	if rankedChunk.Chunk == nil {
-		t.Fatal("expected chunk to be set")
+	if item.DocumentID != "doc-123" {
+		t.Errorf("expected document ID='doc-123', got %s", item.DocumentID)
 	}
-	if rankedChunk.Chunk.ID != "chunk-456" {
-		t.Errorf("expected chunk ID='chunk-456', got %s", rankedChunk.Chunk.ID)
+	if item.SourceID != "source-789" {
+		t.Errorf("expected source ID='source-789', got %s", item.SourceID)
 	}
-	if rankedChunk.Chunk.DocumentID != "doc-123" {
-		t.Errorf("expected document ID='doc-123', got %s", rankedChunk.Chunk.DocumentID)
-	}
-	if rankedChunk.Chunk.SourceID != "source-789" {
-		t.Errorf("expected source ID='source-789', got %s", rankedChunk.Chunk.SourceID)
-	}
-	if rankedChunk.Chunk.Content != "Test snippet content" {
-		t.Errorf("expected content='Test snippet content', got %s", rankedChunk.Chunk.Content)
+	if item.Snippet != "Test snippet content" {
+		t.Errorf("expected snippet='Test snippet content', got %s", item.Snippet)
 	}
 }

@@ -11,8 +11,8 @@ import (
 
 const (
 	ChunkerStageID      = "chunker"
-	DefaultChunkSize    = 512
-	DefaultChunkOverlap = 50
+	DefaultChunkSize    = 1024
+	DefaultChunkOverlap = 100
 )
 
 // ChunkerFactory creates chunker stages.
@@ -88,13 +88,13 @@ func (s *ChunkerStage) Process(ctx context.Context, input any) (any, error) {
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "expected *pipeline.IndexingInput"}
 	}
 
-	chunks := s.chunkText(indexInput.DocumentID, indexInput.Content)
+	chunks := s.chunkText(indexInput.DocumentID, indexInput.SourceID, indexInput.Content)
 
 	return chunks, nil
 }
 
 // chunkText splits text into overlapping chunks.
-func (s *ChunkerStage) chunkText(documentID, text string) []*pipeline.Chunk {
+func (s *ChunkerStage) chunkText(documentID, sourceID, text string) []*pipeline.Chunk {
 	if len(text) == 0 {
 		return nil
 	}
@@ -125,6 +125,7 @@ func (s *ChunkerStage) chunkText(documentID, text string) []*pipeline.Chunk {
 			chunks = append(chunks, &pipeline.Chunk{
 				ID:          domain.GenerateID(),
 				DocumentID:  documentID,
+				SourceID:    sourceID,
 				Content:     chunkContent,
 				Position:    position,
 				StartOffset: offset,

@@ -38,19 +38,32 @@ func DefaultSearchOptions() SearchOptions {
 
 // SearchResult represents the result of a search query
 type SearchResult struct {
-	Query      string         `json:"query"`
-	Mode       SearchMode     `json:"mode"`
-	Results    []*RankedChunk `json:"results"`
-	TotalCount int            `json:"total_count"`
-	Took       time.Duration  `json:"took" swaggertype:"integer" example:"1500000"`
+	Query      string              `json:"query"`
+	Mode       SearchMode          `json:"mode"`
+	Results    []*SearchResultItem `json:"results"`
+	TotalCount int                 `json:"total_count"`
+	Took       time.Duration       `json:"took" swaggertype:"integer" example:"1500000"`
 }
 
-// RankedChunk represents a search result with relevance score
+// SearchResultItem represents a single search result at document level.
+type SearchResultItem struct {
+	DocumentID string    `json:"document_id"`
+	SourceID   string    `json:"source_id"`
+	Title      string    `json:"title"`
+	Path       string    `json:"path"`
+	MimeType   string    `json:"mime_type"`
+	Snippet    string    `json:"snippet"`
+	Score      float64   `json:"score"`
+	IndexedAt  time.Time `json:"indexed_at"`
+}
+
+// RankedChunk is kept for backward compatibility with the legacy Search port.
+// Deprecated: Use SearchResultItem instead.
 type RankedChunk struct {
 	Chunk      *Chunk    `json:"chunk"`
 	Document   *Document `json:"document"`
 	Score      float64   `json:"score"`
-	Highlights []string  `json:"highlights,omitempty"` // Highlighted snippets
+	Highlights []string  `json:"highlights,omitempty"`
 }
 
 // SearchSuggestion represents a search autocomplete suggestion

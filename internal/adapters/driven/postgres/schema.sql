@@ -103,37 +103,18 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_source_id ON documents(source_id);
 CREATE INDEX IF NOT EXISTS idx_documents_external_id ON documents(external_id);
 
--- Chunks table (searchable chunks of documents)
--- Embeddings stored in the embedding column (pgvector) for vector similarity search
-CREATE TABLE IF NOT EXISTS chunks (
-    id TEXT PRIMARY KEY,
-    document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-    source_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    position INT NOT NULL,
-    start_char INT NOT NULL,
-    end_char INT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- Embeddings table (standalone, managed by pgvector adapter)
+-- Decoupled from chunks to avoid storing chunk text in postgres.
+-- The pgvector adapter creates this table via EnsureTable() on startup,
+-- but we define it here for reference and manual setup.
+CREATE TABLE IF NOT EXISTS embeddings (
+    chunk_id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL,
+    embedding vector(1536) NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_source_id ON chunks(source_id);
-
--- Add embedding column for pgvector (idempotent)
--- Uses 1536 dimensions by default (OpenAI ada-002)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'chunks' AND column_name = 'embedding'
-    ) THEN
-        ALTER TABLE chunks ADD COLUMN embedding vector(1536);
-    END IF;
-END $$;
-
--- HNSW index for efficient approximate nearest neighbor search
--- Uses cosine distance (vector_cosine_ops) which is standard for embeddings
-CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_embeddings_document_id ON embeddings(document_id);
+CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON embeddings USING hnsw (embedding vector_cosine_ops);
 
 -- Sync states table (tracks sync progress per source)
 CREATE TABLE IF NOT EXISTS sync_states (

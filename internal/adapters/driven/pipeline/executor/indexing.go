@@ -183,7 +183,7 @@ func (e *IndexingExecutor) applyPreferences(def pipeline.PipelineDefinition, pre
 
 	for i := range stages {
 		switch stages[i].StageID {
-		case "bm25-loader":
+		case "doc-loader":
 			if !prefs.TextIndexingEnabled {
 				stages[i].Enabled = false
 			}

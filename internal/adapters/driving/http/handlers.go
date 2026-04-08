@@ -136,7 +136,13 @@ func (s *Server) handleGetCapabilities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	caps, err := s.capabilitiesService.GetCapabilities(r.Context())
+	// Use team from auth context if available, otherwise fall back to "default"
+	teamID := "default"
+	if authCtx := GetAuthContext(r.Context()); authCtx != nil {
+		teamID = authCtx.TeamID
+	}
+
+	caps, err := s.capabilitiesService.GetCapabilities(r.Context(), teamID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get capabilities")
 		return
@@ -1043,7 +1049,7 @@ func (s *Server) handleGetAISettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get capabilities to determine credential availability
-	caps, err := s.capabilitiesService.GetCapabilities(r.Context())
+	caps, err := s.capabilitiesService.GetCapabilities(r.Context(), getTeamID(r.Context()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get capabilities")
 		return
