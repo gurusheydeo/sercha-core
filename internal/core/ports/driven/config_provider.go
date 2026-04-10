@@ -17,7 +17,7 @@ type AICredentials struct {
 // Capabilities represents what features are available based on environment configuration
 type Capabilities struct {
 	// OAuth providers that are configured via environment variables
-	OAuthProviders []domain.ProviderType
+	OAuthProviders []domain.PlatformType
 
 	// AI providers available for embedding
 	EmbeddingProviders []domain.AIProvider
@@ -47,16 +47,16 @@ type OperationalLimits struct {
 // This is a driven port that abstracts environment-based configuration.
 // Implementation lives in internal/config/ (infrastructure layer).
 type ConfigProvider interface {
-	// GetOAuthCredentials returns OAuth client credentials for a provider.
-	// Returns nil if the provider is not configured in environment variables.
-	GetOAuthCredentials(provider domain.ProviderType) *OAuthCredentials
+	// GetOAuthCredentials returns OAuth client credentials for a platform.
+	// Returns nil if the platform is not configured in environment variables.
+	GetOAuthCredentials(platform domain.PlatformType) *OAuthCredentials
 
 	// GetAICredentials returns AI provider credentials (API key, base URL).
 	// Returns nil if the provider is not configured in environment variables.
 	GetAICredentials(provider domain.AIProvider) *AICredentials
 
-	// IsOAuthConfigured returns true if OAuth credentials are available for the provider.
-	IsOAuthConfigured(provider domain.ProviderType) bool
+	// IsOAuthConfigured returns true if OAuth credentials are available for the platform.
+	IsOAuthConfigured(platform domain.PlatformType) bool
 
 	// IsAIConfigured returns true if AI credentials are available for the provider.
 	IsAIConfigured(provider domain.AIProvider) bool

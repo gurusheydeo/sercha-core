@@ -270,10 +270,10 @@ func main() {
 	// Create token provider factory
 	tokenProviderFactory := auth.NewTokenProviderFactory(installationStore)
 
-	// Register token refreshers for each provider type
+	// Register token refreshers for each platform type
 	// These use OAuth credentials from environment variables via ConfigProvider
-	tokenProviderFactory.RegisterRefresher(domain.ProviderTypeGitHub, func(ctx context.Context, refreshToken string) (*driven.OAuthToken, error) {
-		creds := cfg.GetOAuthCredentials(domain.ProviderTypeGitHub)
+	tokenProviderFactory.RegisterRefresher(domain.PlatformGitHub, func(ctx context.Context, refreshToken string) (*driven.OAuthToken, error) {
+		creds := cfg.GetOAuthCredentials(domain.PlatformGitHub)
 		if creds == nil {
 			return nil, fmt.Errorf("github provider not configured - set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET")
 		}
@@ -285,7 +285,7 @@ func main() {
 
 	// Register GitHub connector
 	factory.Register(github.NewBuilder())
-	factory.RegisterOAuthHandler(domain.ProviderTypeGitHub, github.NewOAuthHandler())
+	factory.RegisterOAuthHandler(domain.PlatformGitHub, github.NewOAuthHandler())
 
 	// Register LocalFS connector (for testing/development)
 	localfsAllowedRoots := []string{"/data", "/tmp"}

@@ -54,19 +54,22 @@ func NewOAuthService(cfg OAuthServiceConfig) driving.OAuthService {
 // Authorize starts an OAuth authorization flow.
 // It generates PKCE credentials, stores state, and returns the authorization URL.
 func (s *oauthService) Authorize(ctx context.Context, req driving.AuthorizeRequest) (*driving.AuthorizeResponse, error) {
-	// Check if provider is configured via environment variables
-	if !s.configProvider.IsOAuthConfigured(req.ProviderType) {
+	// Resolve platform from provider type
+	platform := domain.PlatformFor(req.ProviderType)
+
+	// Check if platform is configured via environment variables
+	if !s.configProvider.IsOAuthConfigured(platform) {
 		return nil, driving.ErrOAuthProviderNotFound
 	}
 
 	// Get OAuth credentials from config
-	credentials := s.configProvider.GetOAuthCredentials(req.ProviderType)
+	credentials := s.configProvider.GetOAuthCredentials(platform)
 	if credentials == nil {
 		return nil, driving.ErrOAuthProviderNotFound
 	}
 
-	// Get OAuth handler for the provider
-	oauthHandler := s.oauthHandlerFactory.GetOAuthHandler(req.ProviderType)
+	// Get OAuth handler for the platform
+	oauthHandler := s.oauthHandlerFactory.GetOAuthHandler(platform)
 	if oauthHandler == nil {
 		return nil, driving.ErrOAuthProviderNotFound
 	}
@@ -144,20 +147,21 @@ func (s *oauthService) Callback(ctx context.Context, req driving.CallbackRequest
 	}
 
 	providerType := domain.ProviderType(oauthState.ProviderType)
+	platform := domain.PlatformFor(providerType)
 
-	// Check if provider is still configured
-	if !s.configProvider.IsOAuthConfigured(providerType) {
+	// Check if platform is still configured
+	if !s.configProvider.IsOAuthConfigured(platform) {
 		return nil, driving.ErrOAuthProviderNotFound
 	}
 
 	// Get OAuth credentials from config
-	credentials := s.configProvider.GetOAuthCredentials(providerType)
+	credentials := s.configProvider.GetOAuthCredentials(platform)
 	if credentials == nil {
 		return nil, driving.ErrOAuthProviderNotFound
 	}
 
 	// Get OAuth handler
-	oauthHandler := s.oauthHandlerFactory.GetOAuthHandler(providerType)
+	oauthHandler := s.oauthHandlerFactory.GetOAuthHandler(platform)
 	if oauthHandler == nil {
 		return nil, driving.ErrOAuthProviderNotFound
 	}
@@ -188,7 +192,7 @@ func (s *oauthService) Callback(ctx context.Context, req driving.CallbackRequest
 	}
 
 	// Check if installation already exists for this account
-	existing, err := s.installationStore.GetByAccountID(ctx, providerType, userInfo.ID)
+	existing, err := s.installationStore.GetByAccountID(ctx, platform, userInfo.ID)
 	if err != nil {
 		return nil, fmt.Errorf("check existing installation: %w", err)
 	}
@@ -234,6 +238,7 @@ func (s *oauthService) Callback(ctx context.Context, req driving.CallbackRequest
 		installation = &domain.Connection{
 			ID:             installationID,
 			Name:           name,
+			Platform:       platform,
 			ProviderType:   providerType,
 			AuthMethod:     domain.AuthMethodOAuth2,
 			AccountID:      userInfo.ID,
@@ -298,28 +303,9 @@ func providerDisplayName(pt domain.ProviderType) string {
 	switch pt {
 	case domain.ProviderTypeGitHub:
 		return "GitHub"
-	case domain.ProviderTypeGitLab:
-		return "GitLab"
-	case domain.ProviderTypeSlack:
-		return "Slack"
-	case domain.ProviderTypeNotion:
-		return "Notion"
-	case domain.ProviderTypeConfluence:
-		return "Confluence"
-	case domain.ProviderTypeJira:
-		return "Jira"
-	case domain.ProviderTypeGoogleDrive:
-		return "Google Drive"
-	case domain.ProviderTypeGoogleDocs:
-		return "Google Docs"
-	case domain.ProviderTypeLinear:
-		return "Linear"
-	case domain.ProviderTypeDropbox:
-		return "Dropbox"
-	case domain.ProviderTypeS3:
-		return "Amazon S3"
 	default:
-		return string(pt)
+		// Fall back to platform display name for other providers
+		return domain.PlatformDisplayName(domain.PlatformFor(pt))
 	}
 }
 

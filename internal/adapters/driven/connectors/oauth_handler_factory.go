@@ -22,8 +22,8 @@ func NewOAuthHandlerFactory(factory *Factory) *OAuthHandlerFactoryAdapter {
 }
 
 // GetOAuthHandler implements driven.OAuthHandlerFactory
-func (a *OAuthHandlerFactoryAdapter) GetOAuthHandler(providerType domain.ProviderType) driven.OAuthHandler {
-	handler := a.factory.GetOAuthHandler(providerType)
+func (a *OAuthHandlerFactoryAdapter) GetOAuthHandler(platform domain.PlatformType) driven.OAuthHandler {
+	handler := a.factory.GetOAuthHandler(platform)
 	if handler == nil {
 		return nil
 	}

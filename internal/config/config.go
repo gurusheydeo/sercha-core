@@ -35,7 +35,7 @@ type Config struct {
 	VectorStoreAvailable  bool // true if pgvector connected successfully
 
 	// OAuth provider credentials
-	oauthCredentials map[domain.ProviderType]*driven.OAuthCredentials
+	oauthCredentials map[domain.PlatformType]*driven.OAuthCredentials
 
 	// AI provider credentials
 	aiCredentials map[domain.AIProvider]*driven.AICredentials
@@ -48,7 +48,7 @@ type Config struct {
 // Returns error if required variables are missing or invalid.
 func Load() (*Config, error) {
 	cfg := &Config{
-		oauthCredentials: make(map[domain.ProviderType]*driven.OAuthCredentials),
+		oauthCredentials: make(map[domain.PlatformType]*driven.OAuthCredentials),
 		aiCredentials:    make(map[domain.AIProvider]*driven.AICredentials),
 	}
 
@@ -129,20 +129,11 @@ func Load() (*Config, error) {
 // loadOAuthCredentials loads OAuth credentials for all supported providers
 func (c *Config) loadOAuthCredentials() {
 	providers := []struct {
-		providerType domain.ProviderType
-		clientIDKey  string
-		secretKey    string
+		platform    domain.PlatformType
+		clientIDKey string
+		secretKey   string
 	}{
-		{domain.ProviderTypeGitHub, "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"},
-		{domain.ProviderTypeGitLab, "GITLAB_CLIENT_ID", "GITLAB_CLIENT_SECRET"},
-		{domain.ProviderTypeSlack, "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"},
-		{domain.ProviderTypeNotion, "NOTION_CLIENT_ID", "NOTION_CLIENT_SECRET"},
-		{domain.ProviderTypeConfluence, "CONFLUENCE_CLIENT_ID", "CONFLUENCE_CLIENT_SECRET"},
-		{domain.ProviderTypeJira, "JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET"},
-		{domain.ProviderTypeGoogleDrive, "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"},
-		{domain.ProviderTypeGoogleDocs, "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"}, // Same as Drive
-		{domain.ProviderTypeLinear, "LINEAR_CLIENT_ID", "LINEAR_CLIENT_SECRET"},
-		{domain.ProviderTypeDropbox, "DROPBOX_CLIENT_ID", "DROPBOX_CLIENT_SECRET"},
+		{domain.PlatformGitHub, "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"},
 	}
 
 	for _, p := range providers {
@@ -157,11 +148,11 @@ func (c *Config) loadOAuthCredentials() {
 		// Warn if partially configured
 		if clientID == "" || clientSecret == "" {
 			log.Printf("Warning: %s partially configured (missing %s or %s), skipping",
-				p.providerType, p.clientIDKey, p.secretKey)
+				p.platform, p.clientIDKey, p.secretKey)
 			continue
 		}
 
-		c.oauthCredentials[p.providerType] = &driven.OAuthCredentials{
+		c.oauthCredentials[p.platform] = &driven.OAuthCredentials{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 		}
@@ -235,8 +226,8 @@ func (c *Config) logConfiguredProviders() {
 }
 
 // GetOAuthCredentials implements driven.ConfigProvider
-func (c *Config) GetOAuthCredentials(provider domain.ProviderType) *driven.OAuthCredentials {
-	return c.oauthCredentials[provider]
+func (c *Config) GetOAuthCredentials(platform domain.PlatformType) *driven.OAuthCredentials {
+	return c.oauthCredentials[platform]
 }
 
 // GetAICredentials implements driven.ConfigProvider
@@ -245,8 +236,8 @@ func (c *Config) GetAICredentials(provider domain.AIProvider) *driven.AICredenti
 }
 
 // IsOAuthConfigured implements driven.ConfigProvider
-func (c *Config) IsOAuthConfigured(provider domain.ProviderType) bool {
-	creds := c.oauthCredentials[provider]
+func (c *Config) IsOAuthConfigured(platform domain.PlatformType) bool {
+	creds := c.oauthCredentials[platform]
 	return creds != nil && creds.ClientID != "" && creds.ClientSecret != ""
 }
 
@@ -266,7 +257,7 @@ func (c *Config) IsAIConfigured(provider domain.AIProvider) bool {
 // GetCapabilities implements driven.ConfigProvider
 func (c *Config) GetCapabilities() *driven.Capabilities {
 	caps := &driven.Capabilities{
-		OAuthProviders:        make([]domain.ProviderType, 0),
+		OAuthProviders:        make([]domain.PlatformType, 0),
 		EmbeddingProviders:    make([]domain.AIProvider, 0),
 		LLMProviders:          make([]domain.AIProvider, 0),
 		SearchEngineAvailable: c.SearchEngineAvailable,

@@ -296,3 +296,35 @@ CREATE TABLE IF NOT EXISTS search_queries (
 CREATE INDEX IF NOT EXISTS idx_search_queries_team_id ON search_queries(team_id);
 CREATE INDEX IF NOT EXISTS idx_search_queries_created_at ON search_queries(created_at);
 CREATE INDEX IF NOT EXISTS idx_search_queries_team_created ON search_queries(team_id, created_at DESC);
+
+-- Platform column for OAuth platform/service separation (Issue #42)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'connector_installations' AND column_name = 'platform'
+    ) THEN
+        ALTER TABLE connector_installations ADD COLUMN platform TEXT;
+        -- Backfill: for existing 1:1 connectors, platform = provider_type
+        UPDATE connector_installations SET platform = provider_type WHERE platform IS NULL;
+        ALTER TABLE connector_installations ALTER COLUMN platform SET NOT NULL;
+    END IF;
+END $$;
+
+-- Replace unique constraint: (provider_type, account_id) -> (platform, account_id)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'unique_provider_account'
+    ) THEN
+        ALTER TABLE connector_installations DROP CONSTRAINT unique_provider_account;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'unique_platform_account'
+    ) THEN
+        ALTER TABLE connector_installations ADD CONSTRAINT unique_platform_account UNIQUE (platform, account_id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_installations_platform ON connector_installations(platform);
