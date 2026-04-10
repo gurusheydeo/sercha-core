@@ -26,20 +26,24 @@ func NewProviderService(configProvider driven.ConfigProvider) driving.ProviderSe
 
 // List returns all available providers with their configuration status.
 func (s *providerService) List(ctx context.Context) ([]*driving.ProviderListItem, error) {
-	// Build list with all core providers
-	coreProviders := domain.CoreProviders()
-	items := make([]*driving.ProviderListItem, 0, len(coreProviders))
+	// Build list with only implemented providers
+	implementedProviders := []domain.ProviderType{
+		domain.ProviderTypeGitHub,
+		domain.ProviderTypeLocalFS,
+	}
+	items := make([]*driving.ProviderListItem, 0, len(implementedProviders))
 
-	for _, providerType := range coreProviders {
+	for _, providerType := range implementedProviders {
 		info := providerMetadata(providerType)
+		platform := domain.PlatformFor(providerType)
 		item := &driving.ProviderListItem{
 			Type:        providerType,
 			Name:        info.name,
 			Description: info.description,
 			AuthMethods: info.authMethods,
 			DocsURL:     info.docsURL,
-			Configured:  s.configProvider.IsOAuthConfigured(providerType),
-			Enabled:     s.configProvider.IsOAuthConfigured(providerType),
+			Configured:  s.configProvider.IsOAuthConfigured(platform),
+			Enabled:     s.configProvider.IsOAuthConfigured(platform),
 		}
 
 		items = append(items, item)
@@ -66,75 +70,12 @@ func providerMetadata(pt domain.ProviderType) providerMeta {
 			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodPAT},
 			docsURL:     "https://docs.sercha.dev/connectors/github",
 		}
-	case domain.ProviderTypeGitLab:
+	case domain.ProviderTypeLocalFS:
 		return providerMeta{
-			name:        "GitLab",
-			description: "Index repositories, issues, merge requests, and wikis",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodPAT},
-			docsURL:     "https://docs.sercha.dev/connectors/gitlab",
-		}
-	case domain.ProviderTypeSlack:
-		return providerMeta{
-			name:        "Slack",
-			description: "Index channels, threads, and messages",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2},
-			docsURL:     "https://docs.sercha.dev/connectors/slack",
-		}
-	case domain.ProviderTypeNotion:
-		return providerMeta{
-			name:        "Notion",
-			description: "Index pages, databases, and documents",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2},
-			docsURL:     "https://docs.sercha.dev/connectors/notion",
-		}
-	case domain.ProviderTypeConfluence:
-		return providerMeta{
-			name:        "Confluence",
-			description: "Index spaces, pages, and blog posts",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodAPIKey},
-			docsURL:     "https://docs.sercha.dev/connectors/confluence",
-		}
-	case domain.ProviderTypeJira:
-		return providerMeta{
-			name:        "Jira",
-			description: "Index projects, issues, and comments",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodAPIKey},
-			docsURL:     "https://docs.sercha.dev/connectors/jira",
-		}
-	case domain.ProviderTypeGoogleDrive:
-		return providerMeta{
-			name:        "Google Drive",
-			description: "Index files, folders, and shared drives",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodServiceAccount},
-			docsURL:     "https://docs.sercha.dev/connectors/google-drive",
-		}
-	case domain.ProviderTypeGoogleDocs:
-		return providerMeta{
-			name:        "Google Docs",
-			description: "Index Google Docs documents",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodServiceAccount},
-			docsURL:     "https://docs.sercha.dev/connectors/google-docs",
-		}
-	case domain.ProviderTypeLinear:
-		return providerMeta{
-			name:        "Linear",
-			description: "Index issues, projects, and comments",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2, domain.AuthMethodAPIKey},
-			docsURL:     "https://docs.sercha.dev/connectors/linear",
-		}
-	case domain.ProviderTypeDropbox:
-		return providerMeta{
-			name:        "Dropbox",
-			description: "Index files and folders",
-			authMethods: []domain.AuthMethod{domain.AuthMethodOAuth2},
-			docsURL:     "https://docs.sercha.dev/connectors/dropbox",
-		}
-	case domain.ProviderTypeS3:
-		return providerMeta{
-			name:        "Amazon S3",
-			description: "Index objects from S3 buckets",
-			authMethods: []domain.AuthMethod{domain.AuthMethodAPIKey},
-			docsURL:     "https://docs.sercha.dev/connectors/s3",
+			name:        "Local Filesystem",
+			description: "Index files and directories from the local filesystem",
+			authMethods: []domain.AuthMethod{},
+			docsURL:     "https://docs.sercha.dev/connectors/localfs",
 		}
 	default:
 		return providerMeta{

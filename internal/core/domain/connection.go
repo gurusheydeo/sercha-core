@@ -8,7 +8,8 @@ import "time"
 type Connection struct {
 	ID           string       `json:"id"`
 	Name         string       `json:"name"`
-	ProviderType ProviderType `json:"provider_type"`
+	Platform     PlatformType `json:"platform"`      // NEW: authentication boundary
+	ProviderType ProviderType `json:"provider_type"` // kept for backward compat
 	AuthMethod   AuthMethod   `json:"auth_method"`
 
 	// Secrets contains decrypted secret values (never persisted as-is)
@@ -47,6 +48,7 @@ type ConnectionSecrets struct {
 type ConnectionSummary struct {
 	ID           string       `json:"id"`
 	Name         string       `json:"name"`
+	Platform     PlatformType `json:"platform"`      // NEW
 	ProviderType ProviderType `json:"provider_type"`
 	AuthMethod   AuthMethod   `json:"auth_method"`
 	AccountID    string       `json:"account_id,omitempty"`
@@ -60,6 +62,7 @@ func (c *Connection) ToSummary() *ConnectionSummary {
 	return &ConnectionSummary{
 		ID:           c.ID,
 		Name:         c.Name,
+		Platform:     c.Platform,
 		ProviderType: c.ProviderType,
 		AuthMethod:   c.AuthMethod,
 		AccountID:    c.AccountID,
@@ -105,4 +108,25 @@ func (c *Connection) GetAccessToken() string {
 		return c.Secrets.APIKey
 	}
 	return ""
+}
+
+// HasScope checks if the connection has a specific OAuth scope
+func (c *Connection) HasScope(scope string) bool {
+	for _, s := range c.OAuthScopes {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
+
+// MissingScopes returns scopes from required that are not in OAuthScopes
+func (c *Connection) MissingScopes(required []string) []string {
+	missing := []string{}
+	for _, req := range required {
+		if !c.HasScope(req) {
+			missing = append(missing, req)
+		}
+	}
+	return missing
 }

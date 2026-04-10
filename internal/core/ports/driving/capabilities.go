@@ -40,8 +40,8 @@ type UpdateCapabilityPreferencesRequest struct {
 // CapabilitiesResponse represents the capabilities available to the application.
 // @Description Information about what features are enabled via environment configuration
 type CapabilitiesResponse struct {
-	// OAuthProviders lists OAuth providers configured via environment variables
-	OAuthProviders []domain.ProviderType `json:"oauth_providers"`
+	// OAuthProviders lists OAuth platforms configured via environment variables
+	OAuthProviders []domain.PlatformType `json:"oauth_providers"`
 
 	// AIProviders lists AI providers available for embedding and LLM
 	AIProviders AIProvidersCapability `json:"ai_providers"`

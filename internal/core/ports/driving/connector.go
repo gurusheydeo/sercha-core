@@ -13,12 +13,6 @@ type ConnectorRegistry interface {
 	// List returns all registered provider types.
 	List() []domain.ProviderType
 
-	// ListInfo returns info about all available connectors.
-	ListInfo() []domain.ProviderInfo
-
-	// GetInfo returns info for a specific provider type.
-	GetInfo(providerType domain.ProviderType) (*domain.ProviderInfo, error)
-
 	// IsAvailable checks if a connector is registered.
 	IsAvailable(providerType domain.ProviderType) bool
 

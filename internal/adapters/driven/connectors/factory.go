@@ -17,7 +17,7 @@ var _ driven.ConnectorFactory = (*Factory)(nil)
 type Factory struct {
 	mu                   sync.RWMutex
 	builders             map[domain.ProviderType]driven.ConnectorBuilder
-	oauthHandlers        map[domain.ProviderType]OAuthHandler
+	oauthHandlers        map[domain.PlatformType]OAuthHandler
 	tokenProviderFactory driven.TokenProviderFactory
 }
 
@@ -25,7 +25,7 @@ type Factory struct {
 func NewFactory(tokenProviderFactory driven.TokenProviderFactory) *Factory {
 	return &Factory{
 		builders:             make(map[domain.ProviderType]driven.ConnectorBuilder),
-		oauthHandlers:        make(map[domain.ProviderType]OAuthHandler),
+		oauthHandlers:        make(map[domain.PlatformType]OAuthHandler),
 		tokenProviderFactory: tokenProviderFactory,
 	}
 }
@@ -37,11 +37,11 @@ func (f *Factory) Register(builder driven.ConnectorBuilder) {
 	f.builders[builder.Type()] = builder
 }
 
-// RegisterOAuthHandler registers an OAuth handler for a provider type.
-func (f *Factory) RegisterOAuthHandler(providerType domain.ProviderType, handler OAuthHandler) {
+// RegisterOAuthHandler registers an OAuth handler for a platform type.
+func (f *Factory) RegisterOAuthHandler(platform domain.PlatformType, handler OAuthHandler) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.oauthHandlers[providerType] = handler
+	f.oauthHandlers[platform] = handler
 }
 
 // Create creates a connector for the given source, scoped to a container.
@@ -115,12 +115,12 @@ func (f *Factory) GetOAuthConfig(providerType domain.ProviderType) *driven.OAuth
 	return builder.OAuthConfig()
 }
 
-// GetOAuthHandler returns the OAuth handler for a provider type.
+// GetOAuthHandler returns the OAuth handler for a platform type.
 // Returns nil if no handler is registered.
-func (f *Factory) GetOAuthHandler(providerType domain.ProviderType) OAuthHandler {
+func (f *Factory) GetOAuthHandler(platform domain.PlatformType) OAuthHandler {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	return f.oauthHandlers[providerType]
+	return f.oauthHandlers[platform]
 }
 
 // SupportsContainerSelection returns true if the provider supports container selection.

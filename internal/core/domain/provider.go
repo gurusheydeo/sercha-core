@@ -6,37 +6,9 @@ import "time"
 type ProviderType string
 
 const (
-	// Code repositories
-	ProviderTypeGitHub    ProviderType = "github"
-	ProviderTypeGitLab    ProviderType = "gitlab"
-	ProviderTypeBitbucket ProviderType = "bitbucket"
-
-	// Communication
-	ProviderTypeSlack   ProviderType = "slack"
-	ProviderTypeDiscord ProviderType = "discord"
-	ProviderTypeMSTeams ProviderType = "msteams"
-
-	// Documentation
-	ProviderTypeNotion     ProviderType = "notion"
-	ProviderTypeConfluence ProviderType = "confluence"
-	ProviderTypeGoogleDocs ProviderType = "google_docs"
-
-	// Project management
-	ProviderTypeJira   ProviderType = "jira"
-	ProviderTypeLinear ProviderType = "linear"
-
-	// File storage
-	ProviderTypeGoogleDrive ProviderType = "google_drive"
-	ProviderTypeDropbox     ProviderType = "dropbox"
-	ProviderTypeOneDrive    ProviderType = "onedrive"
-	ProviderTypeS3          ProviderType = "s3"
-
-	// Local/Development
+	// Only implemented connectors
+	ProviderTypeGitHub  ProviderType = "github"
 	ProviderTypeLocalFS ProviderType = "localfs"
-
-	// Other
-	ProviderTypeZendesk  ProviderType = "zendesk"
-	ProviderTypeIntercom ProviderType = "intercom"
 )
 
 // AuthProvider holds OAuth configuration for a provider
@@ -51,33 +23,6 @@ type AuthProvider struct {
 	RedirectURL  string       `json:"redirect_url"` // OAuth callback URL
 }
 
-// ProviderInfo provides metadata about a provider
-type ProviderInfo struct {
-	Type        ProviderType `json:"type"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	IconURL     string       `json:"icon_url,omitempty"`
-	AuthMethods []AuthMethod `json:"auth_methods"`
-	DocsURL     string       `json:"docs_url,omitempty"`
-	Available   bool         `json:"available"` // Whether connector is implemented
-}
-
-// CoreProviders returns the 11 providers for Sercha Core
-func CoreProviders() []ProviderType {
-	return []ProviderType{
-		ProviderTypeGitHub,
-		ProviderTypeGitLab,
-		ProviderTypeSlack,
-		ProviderTypeNotion,
-		ProviderTypeConfluence,
-		ProviderTypeJira,
-		ProviderTypeGoogleDrive,
-		ProviderTypeGoogleDocs,
-		ProviderTypeLinear,
-		ProviderTypeDropbox,
-		ProviderTypeS3,
-	}
-}
 
 // ProviderConfig represents OAuth app configuration for a provider type.
 // One config per provider - multiple installations can use the same config.
@@ -122,4 +67,52 @@ func (p *ProviderConfig) IsConfigured() bool {
 		return false
 	}
 	return p.Secrets.ClientID != "" || p.Secrets.APIKey != ""
+}
+
+// PlatformType identifies an authentication boundary (OAuth client)
+// Multiple services can share a platform (e.g., google_drive and google_docs both use google)
+type PlatformType string
+
+const (
+	// Only implemented platforms (1:1 with providers for now)
+	PlatformGitHub  PlatformType = "github"
+	PlatformLocalFS PlatformType = "localfs"
+)
+
+// PlatformFor returns the platform that owns a given service/provider.
+// For 1:1 connectors (all current ones), platform == provider.
+// Multi-service platforms (Google, Microsoft, Atlassian) will map
+// multiple ProviderTypes to one PlatformType when implemented.
+func PlatformFor(provider ProviderType) PlatformType {
+	switch provider {
+	case ProviderTypeGitHub:
+		return PlatformGitHub
+	case ProviderTypeLocalFS:
+		return PlatformLocalFS
+	default:
+		return PlatformType(provider)
+	}
+}
+
+// ServicesFor returns all services under a platform.
+func ServicesFor(platform PlatformType) []ProviderType {
+	switch platform {
+	case PlatformGitHub:
+		return []ProviderType{ProviderTypeGitHub}
+	case PlatformLocalFS:
+		return []ProviderType{ProviderTypeLocalFS}
+	default:
+		return []ProviderType{ProviderType(platform)}
+	}
+}
+
+func PlatformDisplayName(platform PlatformType) string {
+	switch platform {
+	case PlatformGitHub:
+		return "GitHub"
+	case PlatformLocalFS:
+		return "Local Filesystem"
+	default:
+		return string(platform)
+	}
 }

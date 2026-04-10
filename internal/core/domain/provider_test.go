@@ -10,22 +10,7 @@ func TestProviderTypeConstants(t *testing.T) {
 		expected string
 	}{
 		{ProviderTypeGitHub, "github"},
-		{ProviderTypeGitLab, "gitlab"},
-		{ProviderTypeBitbucket, "bitbucket"},
-		{ProviderTypeSlack, "slack"},
-		{ProviderTypeDiscord, "discord"},
-		{ProviderTypeMSTeams, "msteams"},
-		{ProviderTypeNotion, "notion"},
-		{ProviderTypeConfluence, "confluence"},
-		{ProviderTypeGoogleDocs, "google_docs"},
-		{ProviderTypeJira, "jira"},
-		{ProviderTypeLinear, "linear"},
-		{ProviderTypeGoogleDrive, "google_drive"},
-		{ProviderTypeDropbox, "dropbox"},
-		{ProviderTypeOneDrive, "onedrive"},
-		{ProviderTypeS3, "s3"},
-		{ProviderTypeZendesk, "zendesk"},
-		{ProviderTypeIntercom, "intercom"},
+		{ProviderTypeLocalFS, "localfs"},
 	}
 
 	for _, tt := range tests {
@@ -37,33 +22,6 @@ func TestProviderTypeConstants(t *testing.T) {
 	}
 }
 
-func TestCoreProviders(t *testing.T) {
-	providers := CoreProviders()
-
-	if len(providers) != 11 {
-		t.Errorf("expected 11 core providers, got %d", len(providers))
-	}
-
-	expectedProviders := map[ProviderType]bool{
-		ProviderTypeGitHub:      true,
-		ProviderTypeGitLab:      true,
-		ProviderTypeSlack:       true,
-		ProviderTypeNotion:      true,
-		ProviderTypeConfluence:  true,
-		ProviderTypeJira:        true,
-		ProviderTypeGoogleDrive: true,
-		ProviderTypeGoogleDocs:  true,
-		ProviderTypeLinear:      true,
-		ProviderTypeDropbox:     true,
-		ProviderTypeS3:          true,
-	}
-
-	for _, provider := range providers {
-		if !expectedProviders[provider] {
-			t.Errorf("unexpected provider in CoreProviders: %s", provider)
-		}
-	}
-}
 
 func TestAuthProvider(t *testing.T) {
 	provider := AuthProvider{
@@ -100,33 +58,6 @@ func TestAuthProvider(t *testing.T) {
 	}
 }
 
-func TestProviderInfo(t *testing.T) {
-	info := ProviderInfo{
-		Type:        ProviderTypeGitHub,
-		Name:        "GitHub",
-		Description: "Connect to GitHub repositories",
-		IconURL:     "https://github.com/favicon.ico",
-		AuthMethods: []AuthMethod{AuthMethodOAuth2, AuthMethodPAT},
-		DocsURL:     "https://docs.example.com/github",
-		Available:   true,
-	}
-
-	if info.Type != ProviderTypeGitHub {
-		t.Errorf("expected Type github, got %s", info.Type)
-	}
-	if info.Name != "GitHub" {
-		t.Errorf("expected Name GitHub, got %s", info.Name)
-	}
-	if info.Description != "Connect to GitHub repositories" {
-		t.Errorf("unexpected Description: %s", info.Description)
-	}
-	if len(info.AuthMethods) != 2 {
-		t.Errorf("expected 2 auth methods, got %d", len(info.AuthMethods))
-	}
-	if !info.Available {
-		t.Error("expected Available to be true")
-	}
-}
 
 func TestProviderConfig_IsConfigured(t *testing.T) {
 	tests := []struct {
@@ -164,7 +95,7 @@ func TestProviderConfig_IsConfigured(t *testing.T) {
 		{
 			name: "with api_key only",
 			config: &ProviderConfig{
-				ProviderType: ProviderTypeS3,
+				ProviderType: ProviderTypeLocalFS,
 				Secrets: &ProviderSecrets{
 					APIKey: "test-api-key",
 				},
@@ -215,5 +146,71 @@ func TestProviderConfigSummary(t *testing.T) {
 	}
 	if !summary.HasSecrets {
 		t.Error("expected HasSecrets to be true")
+	}
+}
+
+func TestPlatformFor(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider ProviderType
+		expected PlatformType
+	}{
+		{"GitHub", ProviderTypeGitHub, PlatformGitHub},
+		{"LocalFS", ProviderTypeLocalFS, PlatformLocalFS},
+		{"Unknown provider", ProviderType("unknown"), PlatformType("unknown")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := PlatformFor(tt.provider); got != tt.expected {
+				t.Errorf("PlatformFor(%s) = %s, want %s", tt.provider, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestServicesFor(t *testing.T) {
+	tests := []struct {
+		name     string
+		platform PlatformType
+		expected []ProviderType
+	}{
+		{"GitHub", PlatformGitHub, []ProviderType{ProviderTypeGitHub}},
+		{"LocalFS", PlatformLocalFS, []ProviderType{ProviderTypeLocalFS}},
+		{"Unknown platform", PlatformType("unknown"), []ProviderType{ProviderType("unknown")}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ServicesFor(tt.platform)
+			if len(got) != len(tt.expected) {
+				t.Errorf("ServicesFor(%s) returned %d services, want %d", tt.platform, len(got), len(tt.expected))
+				return
+			}
+			for i, service := range got {
+				if service != tt.expected[i] {
+					t.Errorf("ServicesFor(%s)[%d] = %s, want %s", tt.platform, i, service, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestPlatformDisplayName(t *testing.T) {
+	tests := []struct {
+		platform PlatformType
+		expected string
+	}{
+		{PlatformGitHub, "GitHub"},
+		{PlatformLocalFS, "Local Filesystem"},
+		{PlatformType("unknown"), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.platform), func(t *testing.T) {
+			if got := PlatformDisplayName(tt.platform); got != tt.expected {
+				t.Errorf("PlatformDisplayName(%s) = %s, want %s", tt.platform, got, tt.expected)
+			}
+		})
 	}
 }

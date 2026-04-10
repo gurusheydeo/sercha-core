@@ -109,12 +109,12 @@ type OAuthHandler interface {
 	RefreshToken(ctx context.Context, refreshToken string) (*OAuthToken, error)
 }
 
-// OAuthHandlerFactory creates OAuth handlers for specific providers.
+// OAuthHandlerFactory creates OAuth handlers for specific platforms.
 // This abstracts the connectors.Factory dependency.
 type OAuthHandlerFactory interface {
-	// GetOAuthHandler returns an OAuth handler for the given provider.
-	// Returns nil if the provider doesn't support OAuth or isn't implemented.
-	GetOAuthHandler(providerType domain.ProviderType) OAuthHandler
+	// GetOAuthHandler returns an OAuth handler for the given platform.
+	// Returns nil if the platform doesn't support OAuth or isn't implemented.
+	GetOAuthHandler(platform domain.PlatformType) OAuthHandler
 }
 
 // OAuthToken represents OAuth tokens from a provider.

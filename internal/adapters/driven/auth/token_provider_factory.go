@@ -18,7 +18,7 @@ type TokenRefresherFunc func(ctx context.Context, refreshToken string) (*driven.
 // TokenProviderFactory creates TokenProviders from connection credentials.
 type TokenProviderFactory struct {
 	connectionStore driven.ConnectionStore
-	refreshers      map[domain.ProviderType]TokenRefresherFunc
+	refreshers      map[domain.PlatformType]TokenRefresherFunc
 }
 
 // NewTokenProviderFactory creates a new TokenProviderFactory.
@@ -27,16 +27,16 @@ func NewTokenProviderFactory(
 ) *TokenProviderFactory {
 	return &TokenProviderFactory{
 		connectionStore: connectionStore,
-		refreshers:      make(map[domain.ProviderType]TokenRefresherFunc),
+		refreshers:      make(map[domain.PlatformType]TokenRefresherFunc),
 	}
 }
 
-// RegisterRefresher registers a token refresh function for a provider type.
+// RegisterRefresher registers a token refresh function for a platform type.
 func (f *TokenProviderFactory) RegisterRefresher(
-	providerType domain.ProviderType,
+	platform domain.PlatformType,
 	refresher TokenRefresherFunc,
 ) {
-	f.refreshers[providerType] = refresher
+	f.refreshers[platform] = refresher
 }
 
 // Create creates a TokenProvider for a connection.
@@ -63,7 +63,7 @@ func (f *TokenProviderFactory) CreateFromConnection(ctx context.Context, conn *d
 
 	switch conn.AuthMethod {
 	case domain.AuthMethodOAuth2:
-		refresher := f.refreshers[conn.ProviderType]
+		refresher := f.refreshers[domain.PlatformFor(conn.ProviderType)]
 		return NewOAuthTokenProvider(
 			conn.ID,
 			conn.Secrets.AccessToken,

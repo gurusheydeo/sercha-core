@@ -109,7 +109,9 @@ func (s *connectionService) Delete(ctx context.Context, id string) error {
 
 // ListByProvider returns connections for a specific provider type.
 func (s *connectionService) ListByProvider(ctx context.Context, providerType domain.ProviderType) ([]*domain.ConnectionSummary, error) {
-	return s.connectionStore.GetByProvider(ctx, providerType)
+	// Map provider type to platform for store lookup
+	platform := domain.PlatformFor(providerType)
+	return s.connectionStore.GetByPlatform(ctx, platform)
 }
 
 // ListContainers lists available containers for a connection.

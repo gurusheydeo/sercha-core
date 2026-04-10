@@ -105,7 +105,7 @@ func (m *mockConnectorFactory) Create(ctx context.Context, source *domain.Source
 }
 
 func (m *mockConnectorFactory) SupportedTypes() []domain.ProviderType {
-	return []domain.ProviderType{domain.ProviderTypeConfluence}
+	return []domain.ProviderType{domain.ProviderTypeGitHub}
 }
 
 func (m *mockConnectorFactory) GetBuilder(providerType domain.ProviderType) (driven.ConnectorBuilder, error) {
@@ -342,7 +342,7 @@ func TestSyncSource_Success_AddDocument(t *testing.T) {
 	source := &domain.Source{
 		ID:           "source-1",
 		Name:         "Test Source",
-		ProviderType: domain.ProviderTypeConfluence,
+		ProviderType: domain.ProviderTypeGitHub,
 		Enabled:      true,
 	}
 	_ = sourceStore.Save(ctx, source)
@@ -428,7 +428,7 @@ func TestSyncSource_Success_UpdateDocument(t *testing.T) {
 	source := &domain.Source{
 		ID:           "source-1",
 		Name:         "Test Source",
-		ProviderType: domain.ProviderTypeConfluence,
+		ProviderType: domain.ProviderTypeGitHub,
 		Enabled:      true,
 	}
 	_ = sourceStore.Save(ctx, source)
@@ -505,7 +505,7 @@ func TestSyncSource_Success_DeleteDocument(t *testing.T) {
 	source := &domain.Source{
 		ID:           "source-1",
 		Name:         "Test Source",
-		ProviderType: domain.ProviderTypeConfluence,
+		ProviderType: domain.ProviderTypeGitHub,
 		Enabled:      true,
 	}
 	_ = sourceStore.Save(ctx, source)
@@ -614,7 +614,7 @@ func TestSyncSource_Pagination(t *testing.T) {
 	source := &domain.Source{
 		ID:           "source-1",
 		Name:         "Test Source",
-		ProviderType: domain.ProviderTypeConfluence,
+		ProviderType: domain.ProviderTypeGitHub,
 		Enabled:      true,
 	}
 	_ = sourceStore.Save(ctx, source)
@@ -736,7 +736,7 @@ func TestSyncSource_ProcessChangeError_Continues(t *testing.T) {
 	source := &domain.Source{
 		ID:           "source-1",
 		Name:         "Test Source",
-		ProviderType: domain.ProviderTypeConfluence,
+		ProviderType: domain.ProviderTypeGitHub,
 		Enabled:      true,
 	}
 	_ = sourceStore.Save(ctx, source)
@@ -775,7 +775,7 @@ func TestSyncSource_UnknownChangeType(t *testing.T) {
 	source := &domain.Source{
 		ID:           "source-1",
 		Name:         "Test Source",
-		ProviderType: domain.ProviderTypeConfluence,
+		ProviderType: domain.ProviderTypeGitHub,
 		Enabled:      true,
 	}
 	_ = sourceStore.Save(ctx, source)

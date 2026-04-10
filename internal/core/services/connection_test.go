@@ -24,6 +24,7 @@ func TestConnectionService_List(t *testing.T) {
 	conn1 := &domain.Connection{
 		ID:           "conn-1",
 		Name:         "Test GitHub",
+		Platform:     domain.PlatformGitHub,
 		ProviderType: domain.ProviderTypeGitHub,
 		AuthMethod:   domain.AuthMethodOAuth2,
 		AccountID:    "user1",
@@ -32,8 +33,9 @@ func TestConnectionService_List(t *testing.T) {
 	}
 	conn2 := &domain.Connection{
 		ID:           "conn-2",
-		Name:         "Test Google",
-		ProviderType: domain.ProviderTypeGoogleDrive,
+		Name:         "Test LocalFS",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
 		AuthMethod:   domain.AuthMethodOAuth2,
 		AccountID:    "user2",
 		CreatedAt:    now,
@@ -192,6 +194,7 @@ func TestConnectionService_ListByProvider(t *testing.T) {
 	conn1 := &domain.Connection{
 		ID:           "conn-1",
 		Name:         "GitHub 1",
+		Platform:     domain.PlatformGitHub,
 		ProviderType: domain.ProviderTypeGitHub,
 		AuthMethod:   domain.AuthMethodOAuth2,
 		CreatedAt:    now,
@@ -200,6 +203,7 @@ func TestConnectionService_ListByProvider(t *testing.T) {
 	conn2 := &domain.Connection{
 		ID:           "conn-2",
 		Name:         "GitHub 2",
+		Platform:     domain.PlatformGitHub,
 		ProviderType: domain.ProviderTypeGitHub,
 		AuthMethod:   domain.AuthMethodOAuth2,
 		CreatedAt:    now,
@@ -207,8 +211,9 @@ func TestConnectionService_ListByProvider(t *testing.T) {
 	}
 	conn3 := &domain.Connection{
 		ID:           "conn-3",
-		Name:         "Google Drive",
-		ProviderType: domain.ProviderTypeGoogleDrive,
+		Name:         "LocalFS",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
 		AuthMethod:   domain.AuthMethodOAuth2,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -227,8 +232,8 @@ func TestConnectionService_ListByProvider(t *testing.T) {
 		t.Errorf("ListByProvider() got %d connections, want 2", len(summaries))
 	}
 
-	// List by Google Drive
-	summaries, err = svc.ListByProvider(ctx, domain.ProviderTypeGoogleDrive)
+	// List by LocalFS
+	summaries, err = svc.ListByProvider(ctx, domain.ProviderTypeLocalFS)
 	if err != nil {
 		t.Fatalf("ListByProvider() error = %v", err)
 	}
