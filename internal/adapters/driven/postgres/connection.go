@@ -42,13 +42,14 @@ func (s *ConnectionStore) Save(ctx context.Context, conn *domain.Connection) err
 
 	query := `
 		INSERT INTO connector_installations (
-			id, name, provider_type, auth_method, secret_blob,
+			id, name, provider_type, platform, auth_method, secret_blob,
 			oauth_token_type, oauth_expiry, oauth_scopes, account_id,
 			created_at, updated_at, last_used_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			provider_type = EXCLUDED.provider_type,
+			platform = EXCLUDED.platform,
 			auth_method = EXCLUDED.auth_method,
 			secret_blob = EXCLUDED.secret_blob,
 			oauth_token_type = EXCLUDED.oauth_token_type,
@@ -69,6 +70,7 @@ func (s *ConnectionStore) Save(ctx context.Context, conn *domain.Connection) err
 		conn.ID,
 		conn.Name,
 		conn.ProviderType,
+		conn.Platform,
 		conn.AuthMethod,
 		secretBlob,
 		nullString(conn.OAuthTokenType),
@@ -89,7 +91,7 @@ func (s *ConnectionStore) Save(ctx context.Context, conn *domain.Connection) err
 // Get retrieves a connection by ID with decrypted secrets.
 func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connection, error) {
 	query := `
-		SELECT id, name, provider_type, auth_method, secret_blob,
+		SELECT id, name, provider_type, platform, auth_method, secret_blob,
 			   oauth_token_type, oauth_expiry, oauth_scopes, account_id,
 			   created_at, updated_at, last_used_at
 		FROM connector_installations
@@ -106,6 +108,7 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 		&conn.ID,
 		&conn.Name,
 		&conn.ProviderType,
+		&conn.Platform,
 		&conn.AuthMethod,
 		&secretBlob,
 		&oauthTokenType,
@@ -147,7 +150,7 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 // List retrieves all connections as summaries (no secrets).
 func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary, error) {
 	query := `
-		SELECT id, name, provider_type, auth_method, account_id,
+		SELECT id, name, provider_type, platform, auth_method, account_id,
 			   oauth_expiry, created_at, last_used_at
 		FROM connector_installations
 		ORDER BY created_at DESC
@@ -169,6 +172,7 @@ func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary
 			&summary.ID,
 			&summary.Name,
 			&summary.ProviderType,
+			&summary.Platform,
 			&summary.AuthMethod,
 			&accountID,
 			&oauthExpiry,
@@ -216,19 +220,19 @@ func (s *ConnectionStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// GetByProvider retrieves connections for a provider type (no secrets).
-func (s *ConnectionStore) GetByProvider(ctx context.Context, providerType domain.ProviderType) ([]*domain.ConnectionSummary, error) {
+// GetByPlatform retrieves connections for a platform type (no secrets).
+func (s *ConnectionStore) GetByPlatform(ctx context.Context, platform domain.PlatformType) ([]*domain.ConnectionSummary, error) {
 	query := `
-		SELECT id, name, provider_type, auth_method, account_id,
+		SELECT id, name, provider_type, platform, auth_method, account_id,
 			   oauth_expiry, created_at, last_used_at
 		FROM connector_installations
-		WHERE provider_type = $1
+		WHERE platform = $1
 		ORDER BY created_at DESC
 	`
 
-	rows, err := s.db.QueryContext(ctx, query, providerType)
+	rows, err := s.db.QueryContext(ctx, query, platform)
 	if err != nil {
-		return nil, fmt.Errorf("list connections by provider: %w", err)
+		return nil, fmt.Errorf("list connections by platform: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -242,6 +246,7 @@ func (s *ConnectionStore) GetByProvider(ctx context.Context, providerType domain
 			&summary.ID,
 			&summary.Name,
 			&summary.ProviderType,
+			&summary.Platform,
 			&summary.AuthMethod,
 			&accountID,
 			&oauthExpiry,
@@ -269,14 +274,14 @@ func (s *ConnectionStore) GetByProvider(ctx context.Context, providerType domain
 	return summaries, nil
 }
 
-// GetByAccountID retrieves a connection by provider type and account ID.
-func (s *ConnectionStore) GetByAccountID(ctx context.Context, providerType domain.ProviderType, accountID string) (*domain.Connection, error) {
+// GetByAccountID retrieves a connection by platform type and account ID.
+func (s *ConnectionStore) GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error) {
 	query := `
-		SELECT id, name, provider_type, auth_method, secret_blob,
+		SELECT id, name, provider_type, platform, auth_method, secret_blob,
 			   oauth_token_type, oauth_expiry, oauth_scopes, account_id,
 			   created_at, updated_at, last_used_at
 		FROM connector_installations
-		WHERE provider_type = $1 AND account_id = $2
+		WHERE platform = $1 AND account_id = $2
 	`
 
 	var conn domain.Connection
@@ -285,10 +290,11 @@ func (s *ConnectionStore) GetByAccountID(ctx context.Context, providerType domai
 	var oauthExpiry, lastUsedAt sql.NullTime
 	var oauthScopes []string
 
-	err := s.db.QueryRowContext(ctx, query, providerType, accountID).Scan(
+	err := s.db.QueryRowContext(ctx, query, platform, accountID).Scan(
 		&conn.ID,
 		&conn.Name,
 		&conn.ProviderType,
+		&conn.Platform,
 		&conn.AuthMethod,
 		&secretBlob,
 		&oauthTokenType,

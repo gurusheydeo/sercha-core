@@ -296,3 +296,105 @@ CREATE TABLE IF NOT EXISTS search_queries (
 CREATE INDEX IF NOT EXISTS idx_search_queries_team_id ON search_queries(team_id);
 CREATE INDEX IF NOT EXISTS idx_search_queries_created_at ON search_queries(created_at);
 CREATE INDEX IF NOT EXISTS idx_search_queries_team_created ON search_queries(team_id, created_at DESC);
+
+-- Platform column for OAuth platform/service separation (Issue #42)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'connector_installations' AND column_name = 'platform'
+    ) THEN
+        ALTER TABLE connector_installations ADD COLUMN platform TEXT;
+        -- Backfill: for existing 1:1 connectors, platform = provider_type
+        UPDATE connector_installations SET platform = provider_type WHERE platform IS NULL;
+        ALTER TABLE connector_installations ALTER COLUMN platform SET NOT NULL;
+    END IF;
+END $$;
+
+-- Replace unique constraint: (provider_type, account_id) -> (platform, account_id)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'unique_provider_account'
+    ) THEN
+        ALTER TABLE connector_installations DROP CONSTRAINT unique_provider_account;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'unique_platform_account'
+    ) THEN
+        ALTER TABLE connector_installations ADD CONSTRAINT unique_platform_account UNIQUE (platform, account_id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_installations_platform ON connector_installations(platform);
+
+-- ===== OAuth 2.0 Authorization Server Tables =====
+
+-- OAuth Clients table (registered third-party applications)
+CREATE TABLE IF NOT EXISTS oauth_clients (
+    id              TEXT PRIMARY KEY,
+    secret_hash     TEXT,
+    name            TEXT NOT NULL,
+    redirect_uris   TEXT[] NOT NULL,
+    grant_types     TEXT[] NOT NULL DEFAULT '{authorization_code}',
+    response_types  TEXT[] NOT NULL DEFAULT '{code}',
+    scopes          TEXT[] NOT NULL,
+    application_type TEXT NOT NULL DEFAULT 'native',
+    token_endpoint_auth_method TEXT NOT NULL DEFAULT 'none',
+    active          BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Authorization Codes table (short-lived codes for auth code flow)
+CREATE TABLE IF NOT EXISTS oauth_authorization_codes (
+    code            TEXT PRIMARY KEY,
+    client_id       TEXT NOT NULL REFERENCES oauth_clients(id) ON DELETE CASCADE,
+    user_id         TEXT NOT NULL REFERENCES users(id),
+    redirect_uri    TEXT NOT NULL,
+    scopes          TEXT[] NOT NULL,
+    code_challenge  TEXT NOT NULL,
+    resource        TEXT,
+    used            BOOLEAN NOT NULL DEFAULT false,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_authz_codes_expires ON oauth_authorization_codes(expires_at);
+CREATE INDEX IF NOT EXISTS idx_oauth_authz_codes_client ON oauth_authorization_codes(client_id);
+
+-- Access Tokens table (short-lived access tokens)
+CREATE TABLE IF NOT EXISTS oauth_access_tokens (
+    id          TEXT PRIMARY KEY,
+    client_id   TEXT NOT NULL REFERENCES oauth_clients(id) ON DELETE CASCADE,
+    user_id     TEXT NOT NULL REFERENCES users(id),
+    scopes      TEXT[] NOT NULL,
+    audience    TEXT,
+    revoked     BOOLEAN NOT NULL DEFAULT false,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_access_tokens_client ON oauth_access_tokens(client_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_access_tokens_user ON oauth_access_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_access_tokens_expires ON oauth_access_tokens(expires_at);
+
+-- Refresh Tokens table (long-lived refresh tokens with rotation support)
+CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
+    id              TEXT PRIMARY KEY,
+    access_token_id TEXT NOT NULL REFERENCES oauth_access_tokens(id) ON DELETE CASCADE,
+    client_id       TEXT NOT NULL REFERENCES oauth_clients(id) ON DELETE CASCADE,
+    user_id         TEXT NOT NULL REFERENCES users(id),
+    scopes          TEXT[] NOT NULL,
+    audience        TEXT,
+    revoked         BOOLEAN NOT NULL DEFAULT false,
+    rotated_to      TEXT,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_refresh_tokens_access ON oauth_refresh_tokens(access_token_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_refresh_tokens_client ON oauth_refresh_tokens(client_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_refresh_tokens_user ON oauth_refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_refresh_tokens_expires ON oauth_refresh_tokens(expires_at);

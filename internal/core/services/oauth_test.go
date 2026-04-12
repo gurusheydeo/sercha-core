@@ -52,7 +52,7 @@ func (m *mockOAuthStateStore) Cleanup(ctx context.Context) error {
 // mockConnectionStore implements driven.ConnectionStore for testing
 type mockConnectionStore struct {
 	connections map[string]*domain.Connection
-	byAccount   map[string]*domain.Connection // providerType:accountID -> Connection
+	byAccount   map[string]*domain.Connection // platform:accountID -> Connection
 }
 
 func newMockConnectionStore() *mockConnectionStore {
@@ -64,7 +64,7 @@ func newMockConnectionStore() *mockConnectionStore {
 
 func (m *mockConnectionStore) Save(ctx context.Context, conn *domain.Connection) error {
 	m.connections[conn.ID] = conn
-	key := string(conn.ProviderType) + ":" + conn.AccountID
+	key := string(conn.Platform) + ":" + conn.AccountID
 	m.byAccount[key] = conn
 	return nil
 }
@@ -90,24 +90,24 @@ func (m *mockConnectionStore) Delete(ctx context.Context, id string) error {
 	if !ok {
 		return domain.ErrNotFound
 	}
-	key := string(conn.ProviderType) + ":" + conn.AccountID
+	key := string(conn.Platform) + ":" + conn.AccountID
 	delete(m.byAccount, key)
 	delete(m.connections, id)
 	return nil
 }
 
-func (m *mockConnectionStore) GetByProvider(ctx context.Context, providerType domain.ProviderType) ([]*domain.ConnectionSummary, error) {
+func (m *mockConnectionStore) GetByPlatform(ctx context.Context, platform domain.PlatformType) ([]*domain.ConnectionSummary, error) {
 	var summaries []*domain.ConnectionSummary
 	for _, conn := range m.connections {
-		if conn.ProviderType == providerType {
+		if conn.Platform == platform {
 			summaries = append(summaries, conn.ToSummary())
 		}
 	}
 	return summaries, nil
 }
 
-func (m *mockConnectionStore) GetByAccountID(ctx context.Context, providerType domain.ProviderType, accountID string) (*domain.Connection, error) {
-	key := string(providerType) + ":" + accountID
+func (m *mockConnectionStore) GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error) {
+	key := string(platform) + ":" + accountID
 	conn, ok := m.byAccount[key]
 	if !ok {
 		return nil, nil
@@ -138,29 +138,29 @@ func (m *mockConnectionStore) UpdateLastUsed(ctx context.Context, id string) err
 
 // mockConfigProvider implements driven.ConfigProvider for testing
 type mockConfigProvider struct {
-	oauthCredentials map[domain.ProviderType]*driven.OAuthCredentials
+	oauthCredentials map[domain.PlatformType]*driven.OAuthCredentials
 	aiCredentials    map[domain.AIProvider]*driven.AICredentials
 	baseURL          string
 }
 
 func newMockConfigProvider() *mockConfigProvider {
 	return &mockConfigProvider{
-		oauthCredentials: make(map[domain.ProviderType]*driven.OAuthCredentials),
+		oauthCredentials: make(map[domain.PlatformType]*driven.OAuthCredentials),
 		aiCredentials:    make(map[domain.AIProvider]*driven.AICredentials),
 		baseURL:          "http://localhost:3000",
 	}
 }
 
-func (m *mockConfigProvider) GetOAuthCredentials(provider domain.ProviderType) *driven.OAuthCredentials {
-	return m.oauthCredentials[provider]
+func (m *mockConfigProvider) GetOAuthCredentials(platform domain.PlatformType) *driven.OAuthCredentials {
+	return m.oauthCredentials[platform]
 }
 
 func (m *mockConfigProvider) GetAICredentials(provider domain.AIProvider) *driven.AICredentials {
 	return m.aiCredentials[provider]
 }
 
-func (m *mockConfigProvider) IsOAuthConfigured(provider domain.ProviderType) bool {
-	return m.oauthCredentials[provider] != nil
+func (m *mockConfigProvider) IsOAuthConfigured(platform domain.PlatformType) bool {
+	return m.oauthCredentials[platform] != nil
 }
 
 func (m *mockConfigProvider) IsAIConfigured(provider domain.AIProvider) bool {
@@ -168,7 +168,7 @@ func (m *mockConfigProvider) IsAIConfigured(provider domain.AIProvider) bool {
 }
 
 func (m *mockConfigProvider) GetCapabilities() *driven.Capabilities {
-	oauthProviders := []domain.ProviderType{}
+	oauthProviders := []domain.PlatformType{}
 	for k := range m.oauthCredentials {
 		oauthProviders = append(oauthProviders, k)
 	}
@@ -264,17 +264,17 @@ func (m *mockOAuthHandler) DefaultConfig() driven.OAuthConfig {
 
 // mockOAuthHandlerFactory implements driven.OAuthHandlerFactory for testing
 type mockOAuthHandlerFactory struct {
-	handlers map[domain.ProviderType]driven.OAuthHandler
+	handlers map[domain.PlatformType]driven.OAuthHandler
 }
 
 func newMockOAuthHandlerFactory() *mockOAuthHandlerFactory {
 	return &mockOAuthHandlerFactory{
-		handlers: make(map[domain.ProviderType]driven.OAuthHandler),
+		handlers: make(map[domain.PlatformType]driven.OAuthHandler),
 	}
 }
 
-func (m *mockOAuthHandlerFactory) GetOAuthHandler(providerType domain.ProviderType) driven.OAuthHandler {
-	return m.handlers[providerType]
+func (m *mockOAuthHandlerFactory) GetOAuthHandler(platform domain.PlatformType) driven.OAuthHandler {
+	return m.handlers[platform]
 }
 
 func TestOAuthService_Authorize(t *testing.T) {
@@ -284,13 +284,13 @@ func TestOAuthService_Authorize(t *testing.T) {
 	handlerFactory := newMockOAuthHandlerFactory()
 
 	// Configure GitHub provider credentials
-	configProvider.oauthCredentials[domain.ProviderTypeGitHub] = &driven.OAuthCredentials{
+	configProvider.oauthCredentials[domain.PlatformGitHub] = &driven.OAuthCredentials{
 		ClientID:     "test-client-id",
 		ClientSecret: "test-secret",
 	}
 
 	// Register GitHub OAuth handler
-	handlerFactory.handlers[domain.ProviderTypeGitHub] = newMockOAuthHandler()
+	handlerFactory.handlers[domain.PlatformGitHub] = newMockOAuthHandler()
 
 	svc := NewOAuthService(OAuthServiceConfig{
 		ConfigProvider:      configProvider,
@@ -352,7 +352,7 @@ func TestOAuthService_Authorize_ProviderDisabled(t *testing.T) {
 	handlerFactory := newMockOAuthHandlerFactory()
 
 	// Don't configure GitHub provider credentials (simulates disabled/unconfigured)
-	// configProvider.oauthCredentials[domain.ProviderTypeGitHub] = nil
+	// configProvider.oauthCredentials[domain.PlatformGitHub] = nil
 
 	svc := NewOAuthService(OAuthServiceConfig{
 		ConfigProvider:      configProvider,
@@ -500,16 +500,7 @@ func TestProviderDisplayName(t *testing.T) {
 		expected     string
 	}{
 		{domain.ProviderTypeGitHub, "GitHub"},
-		{domain.ProviderTypeGitLab, "GitLab"},
-		{domain.ProviderTypeSlack, "Slack"},
-		{domain.ProviderTypeNotion, "Notion"},
-		{domain.ProviderTypeConfluence, "Confluence"},
-		{domain.ProviderTypeJira, "Jira"},
-		{domain.ProviderTypeGoogleDrive, "Google Drive"},
-		{domain.ProviderTypeGoogleDocs, "Google Docs"},
-		{domain.ProviderTypeLinear, "Linear"},
-		{domain.ProviderTypeDropbox, "Dropbox"},
-		{domain.ProviderTypeS3, "Amazon S3"},
+		{domain.ProviderTypeLocalFS, "Local Filesystem"},
 		{domain.ProviderType("unknown"), "unknown"},
 	}
 

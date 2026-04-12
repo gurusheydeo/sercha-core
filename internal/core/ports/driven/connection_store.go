@@ -24,12 +24,12 @@ type ConnectionStore interface {
 	// Returns domain.ErrNotFound if the connection doesn't exist.
 	Delete(ctx context.Context, id string) error
 
-	// GetByProvider retrieves connections for a provider type (no secrets).
-	GetByProvider(ctx context.Context, providerType domain.ProviderType) ([]*domain.ConnectionSummary, error)
+	// GetByPlatform retrieves connections for a platform type (no secrets).
+	GetByPlatform(ctx context.Context, platform domain.PlatformType) ([]*domain.ConnectionSummary, error)
 
-	// GetByAccountID retrieves a connection by provider type and account ID.
+	// GetByAccountID retrieves a connection by platform type and account ID.
 	// Returns nil if not found.
-	GetByAccountID(ctx context.Context, providerType domain.ProviderType, accountID string) (*domain.Connection, error)
+	GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error)
 
 	// UpdateSecrets updates the encrypted secrets and OAuth metadata.
 	// Used after token refresh.

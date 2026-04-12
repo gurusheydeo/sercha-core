@@ -12,15 +12,15 @@ import (
 type MockConnectionStore struct {
 	mu            sync.RWMutex
 	connections   map[string]*domain.Connection
-	byProvider    map[domain.ProviderType]map[string]*domain.Connection
-	byAccount     map[string]*domain.Connection // key: providerType:accountID
+	byPlatform    map[domain.PlatformType]map[string]*domain.Connection
+	byAccount     map[string]*domain.Connection // key: platform:accountID
 }
 
 // NewMockConnectionStore creates a new MockConnectionStore
 func NewMockConnectionStore() *MockConnectionStore {
 	return &MockConnectionStore{
 		connections: make(map[string]*domain.Connection),
-		byProvider:  make(map[domain.ProviderType]map[string]*domain.Connection),
+		byPlatform:  make(map[domain.PlatformType]map[string]*domain.Connection),
 		byAccount:   make(map[string]*domain.Connection),
 	}
 }
@@ -31,13 +31,13 @@ func (m *MockConnectionStore) Save(ctx context.Context, conn *domain.Connection)
 
 	m.connections[conn.ID] = conn
 
-	if m.byProvider[conn.ProviderType] == nil {
-		m.byProvider[conn.ProviderType] = make(map[string]*domain.Connection)
+	if m.byPlatform[conn.Platform] == nil {
+		m.byPlatform[conn.Platform] = make(map[string]*domain.Connection)
 	}
-	m.byProvider[conn.ProviderType][conn.ID] = conn
+	m.byPlatform[conn.Platform][conn.ID] = conn
 
 	if conn.AccountID != "" {
-		key := string(conn.ProviderType) + ":" + conn.AccountID
+		key := string(conn.Platform) + ":" + conn.AccountID
 		m.byAccount[key] = conn
 	}
 
@@ -76,32 +76,32 @@ func (m *MockConnectionStore) Delete(ctx context.Context, id string) error {
 	}
 
 	delete(m.connections, id)
-	delete(m.byProvider[conn.ProviderType], id)
+	delete(m.byPlatform[conn.Platform], id)
 
 	if conn.AccountID != "" {
-		key := string(conn.ProviderType) + ":" + conn.AccountID
+		key := string(conn.Platform) + ":" + conn.AccountID
 		delete(m.byAccount, key)
 	}
 
 	return nil
 }
 
-func (m *MockConnectionStore) GetByProvider(ctx context.Context, providerType domain.ProviderType) ([]*domain.ConnectionSummary, error) {
+func (m *MockConnectionStore) GetByPlatform(ctx context.Context, platform domain.PlatformType) ([]*domain.ConnectionSummary, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	var result []*domain.ConnectionSummary
-	for _, conn := range m.byProvider[providerType] {
+	for _, conn := range m.byPlatform[platform] {
 		result = append(result, conn.ToSummary())
 	}
 	return result, nil
 }
 
-func (m *MockConnectionStore) GetByAccountID(ctx context.Context, providerType domain.ProviderType, accountID string) (*domain.Connection, error) {
+func (m *MockConnectionStore) GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	key := string(providerType) + ":" + accountID
+	key := string(platform) + ":" + accountID
 	conn, ok := m.byAccount[key]
 	if !ok {
 		return nil, nil
@@ -146,7 +146,7 @@ func (m *MockConnectionStore) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.connections = make(map[string]*domain.Connection)
-	m.byProvider = make(map[domain.ProviderType]map[string]*domain.Connection)
+	m.byPlatform = make(map[domain.PlatformType]map[string]*domain.Connection)
 	m.byAccount = make(map[string]*domain.Connection)
 }
 

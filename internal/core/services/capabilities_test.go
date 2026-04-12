@@ -39,7 +39,7 @@ func (m *mockCapabilityStore) SavePreferences(ctx context.Context, prefs *domain
 
 // mockCapabilitiesConfigProvider implements driven.ConfigProvider for capabilities service testing
 type mockCapabilitiesConfigProvider struct {
-	oauthCredentials map[domain.ProviderType]*driven.OAuthCredentials
+	oauthCredentials map[domain.PlatformType]*driven.OAuthCredentials
 	aiCredentials    map[domain.AIProvider]*driven.AICredentials
 	baseURL          string
 	capabilities     *driven.Capabilities
@@ -47,11 +47,11 @@ type mockCapabilitiesConfigProvider struct {
 
 func newMockCapabilitiesConfigProvider() *mockCapabilitiesConfigProvider {
 	return &mockCapabilitiesConfigProvider{
-		oauthCredentials: make(map[domain.ProviderType]*driven.OAuthCredentials),
+		oauthCredentials: make(map[domain.PlatformType]*driven.OAuthCredentials),
 		aiCredentials:    make(map[domain.AIProvider]*driven.AICredentials),
 		baseURL:          "http://localhost:3000",
 		capabilities: &driven.Capabilities{
-			OAuthProviders:     []domain.ProviderType{},
+			OAuthProviders:     []domain.PlatformType{},
 			EmbeddingProviders: []domain.AIProvider{domain.AIProviderOpenAI},
 			LLMProviders:       []domain.AIProvider{domain.AIProviderOpenAI},
 			Limits: driven.OperationalLimits{
@@ -64,16 +64,16 @@ func newMockCapabilitiesConfigProvider() *mockCapabilitiesConfigProvider {
 	}
 }
 
-func (m *mockCapabilitiesConfigProvider) GetOAuthCredentials(provider domain.ProviderType) *driven.OAuthCredentials {
-	return m.oauthCredentials[provider]
+func (m *mockCapabilitiesConfigProvider) GetOAuthCredentials(platform domain.PlatformType) *driven.OAuthCredentials {
+	return m.oauthCredentials[platform]
 }
 
 func (m *mockCapabilitiesConfigProvider) GetAICredentials(provider domain.AIProvider) *driven.AICredentials {
 	return m.aiCredentials[provider]
 }
 
-func (m *mockCapabilitiesConfigProvider) IsOAuthConfigured(provider domain.ProviderType) bool {
-	return m.oauthCredentials[provider] != nil
+func (m *mockCapabilitiesConfigProvider) IsOAuthConfigured(platform domain.PlatformType) bool {
+	return m.oauthCredentials[platform] != nil
 }
 
 func (m *mockCapabilitiesConfigProvider) IsAIConfigured(provider domain.AIProvider) bool {
@@ -85,7 +85,7 @@ func (m *mockCapabilitiesConfigProvider) GetCapabilities() *driven.Capabilities 
 		return m.capabilities
 	}
 	return &driven.Capabilities{
-		OAuthProviders:     []domain.ProviderType{},
+		OAuthProviders:     []domain.PlatformType{},
 		EmbeddingProviders: []domain.AIProvider{},
 		LLMProviders:       []domain.AIProvider{},
 	}
@@ -98,7 +98,7 @@ func (m *mockCapabilitiesConfigProvider) GetBaseURL() string {
 // TestGetCapabilities tests the GetCapabilities method
 func TestGetCapabilities(t *testing.T) {
 	configProvider := newMockCapabilitiesConfigProvider()
-	configProvider.oauthCredentials[domain.ProviderTypeGitHub] = &driven.OAuthCredentials{
+	configProvider.oauthCredentials[domain.PlatformGitHub] = &driven.OAuthCredentials{
 		ClientID:     "test-client",
 		ClientSecret: "test-secret",
 	}
@@ -106,7 +106,7 @@ func TestGetCapabilities(t *testing.T) {
 		APIKey: "test-api-key",
 	}
 	configProvider.capabilities = &driven.Capabilities{
-		OAuthProviders:     []domain.ProviderType{domain.ProviderTypeGitHub},
+		OAuthProviders:     []domain.PlatformType{domain.PlatformGitHub},
 		EmbeddingProviders: []domain.AIProvider{domain.AIProviderOpenAI},
 		LLMProviders:       []domain.AIProvider{domain.AIProviderOpenAI},
 		Limits: driven.OperationalLimits{
@@ -125,8 +125,8 @@ func TestGetCapabilities(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(caps.OAuthProviders) != 1 || caps.OAuthProviders[0] != domain.ProviderTypeGitHub {
-		t.Errorf("expected GitHub provider, got %v", caps.OAuthProviders)
+	if len(caps.OAuthProviders) != 1 || caps.OAuthProviders[0] != domain.PlatformGitHub {
+		t.Errorf("expected GitHub platform, got %v", caps.OAuthProviders)
 	}
 
 	if len(caps.AIProviders.Embedding) != 1 || caps.AIProviders.Embedding[0] != domain.AIProviderOpenAI {
@@ -581,7 +581,7 @@ func TestUpdateCapabilityPreferences_EmptyRequest(t *testing.T) {
 func TestGetCapabilities_NoProviders(t *testing.T) {
 	configProvider := newMockCapabilitiesConfigProvider()
 	configProvider.capabilities = &driven.Capabilities{
-		OAuthProviders:     []domain.ProviderType{},
+		OAuthProviders:     []domain.PlatformType{},
 		EmbeddingProviders: []domain.AIProvider{},
 		LLMProviders:       []domain.AIProvider{},
 		Limits: driven.OperationalLimits{
@@ -631,7 +631,7 @@ func TestGetCapabilities_NoProviders(t *testing.T) {
 func TestGetCapabilities_WithEmbeddingProviders(t *testing.T) {
 	configProvider := newMockCapabilitiesConfigProvider()
 	configProvider.capabilities = &driven.Capabilities{
-		OAuthProviders:        []domain.ProviderType{},
+		OAuthProviders:        []domain.PlatformType{},
 		EmbeddingProviders:    []domain.AIProvider{domain.AIProviderOpenAI},
 		LLMProviders:          []domain.AIProvider{},
 		SearchEngineAvailable: true,

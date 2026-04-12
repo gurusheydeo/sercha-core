@@ -55,6 +55,10 @@ type SearchEngine interface {
 
 	// Count returns the total number of indexed documents
 	Count(ctx context.Context) (int64, error)
+
+	// GetDocument retrieves a document's full indexed content by document ID.
+	// Returns domain.ErrNotFound if the document is not in the search index.
+	GetDocument(ctx context.Context, documentID string) (*domain.DocumentContent, error)
 }
 
 // VectorIndex handles vector similarity search using a standalone embeddings table.
@@ -64,13 +68,14 @@ type VectorIndex interface {
 	Index(ctx context.Context, id string, documentID string, embedding []float32) error
 
 	// IndexBatch adds multiple embeddings with their chunk content
-	IndexBatch(ctx context.Context, ids []string, documentIDs []string, contents []string, embeddings [][]float32) error
+	IndexBatch(ctx context.Context, ids []string, documentIDs []string, sourceIDs []string, contents []string, embeddings [][]float32) error
 
 	// Search finds similar vectors, returns chunk IDs and distances
 	Search(ctx context.Context, embedding []float32, k int) ([]string, []float64, error)
 
 	// SearchWithContent finds similar vectors and returns chunk content alongside IDs/distances.
-	SearchWithContent(ctx context.Context, embedding []float32, k int) ([]VectorSearchResult, error)
+	// sourceIDs optionally filters results to specific sources (nil or empty = no filter).
+	SearchWithContent(ctx context.Context, embedding []float32, k int, sourceIDs []string) ([]VectorSearchResult, error)
 
 	// Delete removes a single embedding by chunk ID
 	Delete(ctx context.Context, id string) error

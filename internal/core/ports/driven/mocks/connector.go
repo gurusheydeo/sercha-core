@@ -23,7 +23,7 @@ func (m *MockConnector) Type() domain.ProviderType {
 	if m.TypeFn != nil {
 		return m.TypeFn()
 	}
-	return domain.ProviderTypeConfluence
+	return domain.ProviderTypeGitHub
 }
 
 func (m *MockConnector) ValidateConfig(config domain.SourceConfig) error {
@@ -88,7 +88,7 @@ func (m *MockConnectorFactory) SupportedTypes() []domain.ProviderType {
 	if m.SupportedTypesFn != nil {
 		return m.SupportedTypesFn()
 	}
-	return []domain.ProviderType{domain.ProviderTypeConfluence}
+	return []domain.ProviderType{domain.ProviderTypeGitHub}
 }
 
 func (m *MockConnectorFactory) GetBuilder(providerType domain.ProviderType) (interface{}, error) {

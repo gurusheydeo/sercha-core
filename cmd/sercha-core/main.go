@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	stdhttp "net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -47,6 +48,7 @@ import (
 	redisqueue "github.com/sercha-oss/sercha-core/internal/adapters/driven/queue/redis"
 	redisadapter "github.com/sercha-oss/sercha-core/internal/adapters/driven/redis"
 	"github.com/sercha-oss/sercha-core/internal/adapters/driving/http"
+	mcpadapter "github.com/sercha-oss/sercha-core/internal/adapters/driving/mcp"
 	"github.com/sercha-oss/sercha-core/internal/config"
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
 	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
@@ -267,13 +269,18 @@ func main() {
 	installationStore = postgres.NewConnectionStore(db.DB, encryptor)
 	oauthStateStore = postgres.NewOAuthStateStore(db.DB)
 
+	// ===== OAuth 2.0 Authorization Server Stores =====
+	oauthClientStore := postgres.NewOAuthClientStore(db.DB)
+	authCodeStore := postgres.NewAuthorizationCodeStore(db.DB)
+	oauthTokenStore := postgres.NewOAuthTokenStore(db.DB)
+
 	// Create token provider factory
 	tokenProviderFactory := auth.NewTokenProviderFactory(installationStore)
 
-	// Register token refreshers for each provider type
+	// Register token refreshers for each platform type
 	// These use OAuth credentials from environment variables via ConfigProvider
-	tokenProviderFactory.RegisterRefresher(domain.ProviderTypeGitHub, func(ctx context.Context, refreshToken string) (*driven.OAuthToken, error) {
-		creds := cfg.GetOAuthCredentials(domain.ProviderTypeGitHub)
+	tokenProviderFactory.RegisterRefresher(domain.PlatformGitHub, func(ctx context.Context, refreshToken string) (*driven.OAuthToken, error) {
+		creds := cfg.GetOAuthCredentials(domain.PlatformGitHub)
 		if creds == nil {
 			return nil, fmt.Errorf("github provider not configured - set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET")
 		}
@@ -285,7 +292,7 @@ func main() {
 
 	// Register GitHub connector
 	factory.Register(github.NewBuilder())
-	factory.RegisterOAuthHandler(domain.ProviderTypeGitHub, github.NewOAuthHandler())
+	factory.RegisterOAuthHandler(domain.PlatformGitHub, github.NewOAuthHandler())
 
 	// Register LocalFS connector (for testing/development)
 	localfsAllowedRoots := []string{"/data", "/tmp"}
@@ -438,7 +445,7 @@ func main() {
 			{StageID: "bm25-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
 			{StageID: "vector-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
 			{StageID: "hybrid-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
-			{StageID: "ranker", Enabled: true, Parameters: map[string]any{"limit": 20}},
+			{StageID: "ranker", Enabled: true, Parameters: map[string]any{"limit": 100}},
 			{StageID: "presenter", Enabled: true, Parameters: map[string]any{"snippet_length": 200}},
 		},
 	}
@@ -460,7 +467,7 @@ func main() {
 	authService := services.NewAuthService(userStore, sessionStore, authAdapter)
 	userService := services.NewUserService(userStore, sessionStore, authAdapter, teamID)
 	sourceService := services.NewSourceService(sourceStore, documentStore, syncStore, searchEngine)
-	documentService := services.NewDocumentService(documentStore, chunkStore)
+	documentService := services.NewDocumentService(documentStore, searchEngine)
 	searchService := services.NewSearchService(searchEngine, documentStore, runtimeServices, searchExecutor, capabilityStore, settingsStore, teamID)
 	settingsService := services.NewSettingsService(settingsStore, aiFactory, cfg, runtimeServices, teamID)
 
@@ -509,6 +516,36 @@ func main() {
 		searchQueryRepo,
 		sourceStore,
 	)
+
+	// ===== OAuth 2.0 Authorization Server + MCP =====
+	mcpServerURL := getEnv("MCP_SERVER_URL", cfg.BaseURL+"/mcp")
+	mcpEnabled := getEnvBool("MCP_ENABLED", true)
+
+	var oauthServerService driving.OAuthServerService
+	var mcpHandler stdhttp.Handler
+	if mcpEnabled {
+		oauthServerService = services.NewOAuthServerService(services.OAuthServerServiceConfig{
+			ClientStore:  oauthClientStore,
+			CodeStore:    authCodeStore,
+			TokenStore:   oauthTokenStore,
+			JWTSecret:    cfg.JWTSecret,
+			MCPServerURL: mcpServerURL,
+		})
+
+		mcpServer := mcpadapter.NewMCPServer(mcpadapter.MCPServerConfig{
+			SearchService:   searchService,
+			DocumentService: documentService,
+			SourceService:   sourceService,
+			OAuthService:    oauthServerService,
+			MCPServerURL:    mcpServerURL,
+			Version:         version,
+		})
+
+		mcpHandler = mcpadapter.NewHTTPHandler(mcpServer, oauthServerService, mcpServerURL)
+		log.Printf("MCP server enabled at %s", mcpServerURL)
+	} else {
+		log.Println("MCP server disabled via MCP_ENABLED=false")
+	}
 
 	// Log startup configuration
 	log.Printf("Runtime config: session_backend=%s, embedding=%t, llm=%t, search_mode=%s",
@@ -561,7 +598,7 @@ func main() {
 		if redisClient != nil {
 			redisPing = &redisPinger{client: redisClient}
 		}
-		runAPI(port, authService, userService, searchService, sourceService, documentService, settingsService, providerService, oauthService, connectionService, syncOrchestrator, capabilitiesService, setupService, adminService, taskQueue, searchQueryRepo, db, redisPing)
+		runAPI(port, authService, userService, searchService, sourceService, documentService, settingsService, providerService, oauthService, connectionService, syncOrchestrator, capabilitiesService, setupService, adminService, taskQueue, searchQueryRepo, db, redisPing, oauthServerService, mcpHandler)
 
 	case "worker":
 		// Worker-only mode: Task processing, scheduler, no HTTP server
@@ -576,7 +613,7 @@ func main() {
 		if redisClient != nil {
 			redisPing = &redisPinger{client: redisClient}
 		}
-		runAPI(port, authService, userService, searchService, sourceService, documentService, settingsService, providerService, oauthService, connectionService, syncOrchestrator, capabilitiesService, setupService, adminService, taskQueue, searchQueryRepo, db, redisPing)
+		runAPI(port, authService, userService, searchService, sourceService, documentService, settingsService, providerService, oauthService, connectionService, syncOrchestrator, capabilitiesService, setupService, adminService, taskQueue, searchQueryRepo, db, redisPing, oauthServerService, mcpHandler)
 
 	default:
 		log.Fatalf("Unknown mode: %s (use: api, worker, or all)", mode)
@@ -602,6 +639,8 @@ func runAPI(
 	searchQueryRepo driven.SearchQueryRepository,
 	db http.Pinger,
 	redisClient http.Pinger, // can be nil
+	oauthServerService driving.OAuthServerService, // can be nil
+	mcpHandler stdhttp.Handler, // can be nil
 ) {
 	// Parse CORS origins from environment variable
 	corsOrigins := parseCORSOrigins(getEnv("CORS_ORIGINS", "*"))
@@ -611,6 +650,7 @@ func runAPI(
 		Port:        port,
 		Version:     version,
 		CORSOrigins: corsOrigins,
+		UIBaseURL:   getEnv("UI_BASE_URL", "http://localhost:3000"),
 	}
 
 	server := http.NewServer(
@@ -632,6 +672,8 @@ func runAPI(
 		searchQueryRepo,
 		db,
 		redisClient,
+		oauthServerService,
+		mcpHandler,
 	)
 
 	log.Printf("API server starting on :%d", port)
