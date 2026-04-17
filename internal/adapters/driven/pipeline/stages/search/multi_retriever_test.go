@@ -671,12 +671,13 @@ func TestMultiRetrieverStage_Process_HybridMode(t *testing.T) {
 	}
 
 	stage := &MultiRetrieverStage{
-		descriptor:   NewMultiRetrieverFactory().Descriptor(),
-		searchEngine: searchEngine,
-		vectorIndex:  vectorIdx,
-		embedder:     embedder,
-		topK:         100,
-		rrfK:         DefaultRRFK,
+		descriptor:              NewMultiRetrieverFactory().Descriptor(),
+		searchEngine:            searchEngine,
+		vectorIndex:             vectorIdx,
+		embedder:                embedder,
+		topK:                    100,
+		rrfK:                    DefaultRRFK,
+		vectorDistanceThreshold: DefaultVectorDistanceThreshold,
 	}
 
 	input := []*pipeline.ParsedQuery{
