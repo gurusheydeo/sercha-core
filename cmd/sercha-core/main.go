@@ -363,6 +363,9 @@ func main() {
 	if err := stageRegistry.Register(searchstages.NewQueryParserFactory()); err != nil {
 		log.Fatalf("Failed to register query-parser stage: %v", err)
 	}
+	if err := stageRegistry.Register(searchstages.NewQueryExpanderFactory()); err != nil {
+		log.Fatalf("Failed to register query-expander stage: %v", err)
+	}
 	if err := stageRegistry.Register(searchstages.NewBM25RetrieverFactory()); err != nil {
 		log.Fatalf("Failed to register bm25-retriever stage: %v", err)
 	}
@@ -371,6 +374,9 @@ func main() {
 	}
 	if err := stageRegistry.Register(searchstages.NewHybridRetrieverFactory()); err != nil {
 		log.Fatalf("Failed to register hybrid-retriever stage: %v", err)
+	}
+	if err := stageRegistry.Register(searchstages.NewMultiRetrieverFactory()); err != nil {
+		log.Fatalf("Failed to register multi-retriever stage: %v", err)
 	}
 	if err := stageRegistry.Register(searchstages.NewRankerFactory()); err != nil {
 		log.Fatalf("Failed to register ranker stage: %v", err)
@@ -393,6 +399,21 @@ func main() {
 		},
 	}); err != nil {
 		log.Fatalf("Failed to register embedder capability: %v", err)
+	}
+
+	// LLM - dynamically available via runtimeServices
+	// The instance is resolved at runtime when needed
+	if err := capabilityRegistry.Register(&providers.CapabilityProvider{
+		CapType:    pipeline.CapabilityLLM,
+		ProviderID: "default",
+		InstanceResolver: func() any {
+			return runtimeServices.LLMService()
+		},
+		AvailFn: func() bool {
+			return runtimeServices.LLMService() != nil
+		},
+	}); err != nil {
+		log.Fatalf("Failed to register llm capability: %v", err)
 	}
 
 	// SearchEngine - OpenSearch if configured
@@ -442,17 +463,17 @@ func main() {
 		log.Fatalf("Failed to set default indexing pipeline: %v", err)
 	}
 
-	// Register default search pipeline with all retriever variants.
-	// applyPreferences enables exactly one retriever based on the requested search mode.
+	// Register default search pipeline with query expansion and multi-query retrieval.
+	// The query-expander generates multiple query variants (1:N).
+	// The multi-retriever searches all variants in parallel and merges with RRF (N:1).
 	searchPipeline := pipeline.PipelineDefinition{
 		ID:   "default-search",
 		Name: "Default Search Pipeline",
 		Type: pipeline.PipelineTypeSearch,
 		Stages: []pipeline.StageConfig{
 			{StageID: "query-parser", Enabled: true},
-			{StageID: "bm25-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
-			{StageID: "vector-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
-			{StageID: "hybrid-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
+			{StageID: "query-expander", Enabled: true},
+			{StageID: "multi-retriever", Enabled: true, Parameters: map[string]any{"top_k": 100}},
 			{StageID: "ranker", Enabled: true, Parameters: map[string]any{"limit": 100}},
 			{StageID: "presenter", Enabled: true, Parameters: map[string]any{"snippet_length": 200}},
 		},

@@ -24,6 +24,7 @@ const (
 	// Search shapes
 	ShapeQuery           ShapeName = "query"
 	ShapeParsedQuery     ShapeName = "parsed_query"
+	ShapeQuerySet        ShapeName = "query_set"
 	ShapeExpandedQuery   ShapeName = "expanded_query"
 	ShapeCandidate       ShapeName = "candidate"
 	ShapeRankedResult    ShapeName = "ranked_result"
