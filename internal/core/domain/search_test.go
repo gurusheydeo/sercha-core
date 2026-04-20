@@ -461,7 +461,7 @@ func TestSearchOptionsJSONUnmarshaling(t *testing.T) {
 
 				// Check BoostTerms
 				if tt.wantBoosts == nil {
-					if opts.BoostTerms != nil && len(opts.BoostTerms) > 0 {
+					if len(opts.BoostTerms) > 0 {
 						t.Errorf("BoostTerms should be nil or empty, got %v", opts.BoostTerms)
 					}
 				} else {
