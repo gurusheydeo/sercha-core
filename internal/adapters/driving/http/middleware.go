@@ -33,7 +33,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := extractBearerToken(r)
 		if token == "" {
-			writeError(w, http.StatusUnauthorized, "missing authorization token")
+			WriteError(w, http.StatusUnauthorized, "missing authorization token")
 			return
 		}
 
@@ -41,11 +41,11 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		if err != nil {
 			switch err {
 			case domain.ErrTokenExpired:
-				writeError(w, http.StatusUnauthorized, "token expired")
+				WriteError(w, http.StatusUnauthorized, "token expired")
 			case domain.ErrSessionNotFound:
-				writeError(w, http.StatusUnauthorized, "session not found")
+				WriteError(w, http.StatusUnauthorized, "session not found")
 			default:
-				writeError(w, http.StatusUnauthorized, "invalid token")
+				WriteError(w, http.StatusUnauthorized, "invalid token")
 			}
 			return
 		}
@@ -61,12 +61,12 @@ func (m *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authCtx := GetAuthContext(r.Context())
 		if authCtx == nil {
-			writeError(w, http.StatusUnauthorized, "unauthorized")
+			WriteError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
 		if !authCtx.IsAdmin() {
-			writeError(w, http.StatusForbidden, "admin access required")
+			WriteError(w, http.StatusForbidden, "admin access required")
 			return
 		}
 
@@ -80,7 +80,7 @@ func (m *AuthMiddleware) RequireRole(roles ...domain.Role) func(http.Handler) ht
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authCtx := GetAuthContext(r.Context())
 			if authCtx == nil {
-				writeError(w, http.StatusUnauthorized, "unauthorized")
+				WriteError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
@@ -91,7 +91,7 @@ func (m *AuthMiddleware) RequireRole(roles ...domain.Role) func(http.Handler) ht
 				}
 			}
 
-			writeError(w, http.StatusForbidden, "insufficient permissions")
+			WriteError(w, http.StatusForbidden, "insufficient permissions")
 		})
 	}
 }
@@ -174,7 +174,7 @@ func (m *RecoveryMiddleware) Handler(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				log.Printf("panic recovered: %v", err)
-				writeError(w, http.StatusInternalServerError, "internal server error")
+				WriteError(w, http.StatusInternalServerError, "internal server error")
 			}
 		}()
 		next.ServeHTTP(w, r)
