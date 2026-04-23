@@ -467,7 +467,7 @@ func TestWriteJSON(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	data := map[string]string{"foo": "bar"}
-	writeJSON(rr, http.StatusCreated, data)
+	WriteJSON(rr, http.StatusCreated, data)
 
 	if rr.Code != http.StatusCreated {
 		t.Errorf("expected status 201, got %d", rr.Code)
@@ -488,7 +488,7 @@ func TestWriteJSON(t *testing.T) {
 func TestWriteError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
-	writeError(rr, http.StatusBadRequest, "invalid input")
+	WriteError(rr, http.StatusBadRequest, "invalid input")
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected status 400, got %d", rr.Code)

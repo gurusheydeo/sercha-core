@@ -99,7 +99,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Always return 200 - service is up and can respond
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // handleReady godoc
@@ -111,7 +111,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // @Router       /ready [get]
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check database and service connections
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 // handleVersion godoc
@@ -122,7 +122,7 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 // @Success      200  {object}  VersionResponse
 // @Router       /version [get]
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"version": s.version})
+	WriteJSON(w, http.StatusOK, map[string]string{"version": s.version})
 }
 
 // handleGetCapabilities godoc
@@ -135,7 +135,7 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 // @Router       /capabilities [get]
 func (s *Server) handleGetCapabilities(w http.ResponseWriter, r *http.Request) {
 	if s.capabilitiesService == nil {
-		writeError(w, http.StatusServiceUnavailable, "capabilities service not available")
+		WriteError(w, http.StatusServiceUnavailable, "capabilities service not available")
 		return
 	}
 
@@ -147,11 +147,11 @@ func (s *Server) handleGetCapabilities(w http.ResponseWriter, r *http.Request) {
 
 	caps, err := s.capabilitiesService.GetCapabilities(r.Context(), teamID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get capabilities")
+		WriteError(w, http.StatusInternalServerError, "failed to get capabilities")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, caps)
+	WriteJSON(w, http.StatusOK, caps)
 }
 
 // handleGetCapabilityPreferences godoc
@@ -167,22 +167,22 @@ func (s *Server) handleGetCapabilities(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetCapabilityPreferences(w http.ResponseWriter, r *http.Request) {
 	authCtx := GetAuthContext(r.Context())
 	if authCtx == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	if s.capabilitiesService == nil {
-		writeError(w, http.StatusServiceUnavailable, "capabilities service not available")
+		WriteError(w, http.StatusServiceUnavailable, "capabilities service not available")
 		return
 	}
 
 	prefs, err := s.capabilitiesService.GetCapabilityPreferences(r.Context(), authCtx.TeamID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get capability preferences")
+		WriteError(w, http.StatusInternalServerError, "failed to get capability preferences")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, prefs)
+	WriteJSON(w, http.StatusOK, prefs)
 }
 
 // handleUpdateCapabilityPreferences godoc
@@ -201,28 +201,28 @@ func (s *Server) handleGetCapabilityPreferences(w http.ResponseWriter, r *http.R
 func (s *Server) handleUpdateCapabilityPreferences(w http.ResponseWriter, r *http.Request) {
 	authCtx := GetAuthContext(r.Context())
 	if authCtx == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	if s.capabilitiesService == nil {
-		writeError(w, http.StatusServiceUnavailable, "capabilities service not available")
+		WriteError(w, http.StatusServiceUnavailable, "capabilities service not available")
 		return
 	}
 
 	var req driving.UpdateCapabilityPreferencesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	prefs, err := s.capabilitiesService.UpdateCapabilityPreferences(r.Context(), authCtx.TeamID, req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update capability preferences")
+		WriteError(w, http.StatusInternalServerError, "failed to update capability preferences")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, prefs)
+	WriteJSON(w, http.StatusOK, prefs)
 }
 
 // Auth endpoints
@@ -242,7 +242,7 @@ func (s *Server) handleUpdateCapabilityPreferences(w http.ResponseWriter, r *htt
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -250,16 +250,16 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidCredentials:
-			writeError(w, http.StatusUnauthorized, "invalid credentials")
+			WriteError(w, http.StatusUnauthorized, "invalid credentials")
 		case domain.ErrUnauthorized:
-			writeError(w, http.StatusUnauthorized, "account disabled")
+			WriteError(w, http.StatusUnauthorized, "account disabled")
 		default:
-			writeError(w, http.StatusInternalServerError, "authentication failed")
+			WriteError(w, http.StatusInternalServerError, "authentication failed")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // handleRefresh godoc
@@ -276,17 +276,17 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req domain.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	resp, err := s.authService.RefreshToken(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid refresh token")
+		WriteError(w, http.StatusUnauthorized, "invalid refresh token")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // handleLogout godoc
@@ -300,12 +300,12 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	token := extractBearerToken(r)
 	if token == "" {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
 
 	_ = s.authService.Logout(r.Context(), token)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // Setup endpoint (no auth required, one-time use)
@@ -325,7 +325,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	var req driving.SetupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -333,16 +333,16 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "email, password, and name are required")
+			WriteError(w, http.StatusBadRequest, "email, password, and name are required")
 		case domain.ErrForbidden:
-			writeError(w, http.StatusForbidden, "setup already complete")
+			WriteError(w, http.StatusForbidden, "setup already complete")
 		default:
-			writeError(w, http.StatusInternalServerError, "setup failed")
+			WriteError(w, http.StatusInternalServerError, "setup failed")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, resp)
+	WriteJSON(w, http.StatusCreated, resp)
 }
 
 // handleSetupStatus godoc
@@ -355,17 +355,17 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 // @Router       /setup/status [get]
 func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 	if s.setupService == nil {
-		writeError(w, http.StatusServiceUnavailable, "setup service not available")
+		WriteError(w, http.StatusServiceUnavailable, "setup service not available")
 		return
 	}
 
 	status, err := s.setupService.GetStatus(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get setup status")
+		WriteError(w, http.StatusInternalServerError, "failed to get setup status")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, status)
+	WriteJSON(w, http.StatusOK, status)
 }
 
 // User endpoints
@@ -383,17 +383,17 @@ func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	authCtx := GetAuthContext(r.Context())
 	if authCtx == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	user, err := s.userService.Get(r.Context(), authCtx.UserID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "user not found")
+		WriteError(w, http.StatusNotFound, "user not found")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user.ToSummary())
+	WriteJSON(w, http.StatusOK, user.ToSummary())
 }
 
 // handleListUsers godoc
@@ -410,7 +410,7 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.userService.List(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list users")
+		WriteError(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
 
@@ -419,7 +419,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		summaries[i] = u.ToSummary()
 	}
 
-	writeJSON(w, http.StatusOK, summaries)
+	WriteJSON(w, http.StatusOK, summaries)
 }
 
 // handleCreateUser godoc
@@ -440,7 +440,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var req driving.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -448,16 +448,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrAlreadyExists:
-			writeError(w, http.StatusConflict, "user already exists")
+			WriteError(w, http.StatusConflict, "user already exists")
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid input")
+			WriteError(w, http.StatusBadRequest, "invalid input")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to create user")
+			WriteError(w, http.StatusInternalServerError, "failed to create user")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, user.ToSummary())
+	WriteJSON(w, http.StatusCreated, user.ToSummary())
 }
 
 // handleGetUser godoc
@@ -477,7 +477,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing user id")
+		WriteError(w, http.StatusBadRequest, "missing user id")
 		return
 	}
 
@@ -485,14 +485,14 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "user not found")
+			WriteError(w, http.StatusNotFound, "user not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get user")
+			WriteError(w, http.StatusInternalServerError, "failed to get user")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user.ToSummary())
+	WriteJSON(w, http.StatusOK, user.ToSummary())
 }
 
 // handleUpdateUser godoc
@@ -514,13 +514,13 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing user id")
+		WriteError(w, http.StatusBadRequest, "missing user id")
 		return
 	}
 
 	var req driving.UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -528,16 +528,16 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "user not found")
+			WriteError(w, http.StatusNotFound, "user not found")
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid input")
+			WriteError(w, http.StatusBadRequest, "invalid input")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to update user")
+			WriteError(w, http.StatusInternalServerError, "failed to update user")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user.ToSummary())
+	WriteJSON(w, http.StatusOK, user.ToSummary())
 }
 
 // ResetPasswordRequest represents a password reset request
@@ -565,34 +565,34 @@ type ResetPasswordRequest struct {
 func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing user id")
+		WriteError(w, http.StatusBadRequest, "missing user id")
 		return
 	}
 
 	var req ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.Password == "" {
-		writeError(w, http.StatusBadRequest, "password is required")
+		WriteError(w, http.StatusBadRequest, "password is required")
 		return
 	}
 
 	if err := s.userService.SetPassword(r.Context(), id, req.Password); err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "user not found")
+			WriteError(w, http.StatusNotFound, "user not found")
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid password")
+			WriteError(w, http.StatusBadRequest, "invalid password")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to reset password")
+			WriteError(w, http.StatusInternalServerError, "failed to reset password")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "password reset successfully"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "password reset successfully"})
 }
 
 // handleDeleteUser godoc
@@ -612,21 +612,21 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing user id")
+		WriteError(w, http.StatusBadRequest, "missing user id")
 		return
 	}
 
 	if err := s.userService.Delete(r.Context(), id); err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "user not found")
+			WriteError(w, http.StatusNotFound, "user not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to delete user")
+			WriteError(w, http.StatusInternalServerError, "failed to delete user")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // Search endpoints
@@ -659,12 +659,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	var req searchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.Query == "" {
-		writeError(w, http.StatusBadRequest, "query is required")
+		WriteError(w, http.StatusBadRequest, "query is required")
 		return
 	}
 
@@ -678,7 +678,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.searchService.Search(r.Context(), req.Query, opts)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "search failed")
+		WriteError(w, http.StatusInternalServerError, "search failed")
 		return
 	}
 
@@ -707,7 +707,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	if s.retrievalObserver != nil {
 		event := driven.SearchCompletedEvent{
 			Query:       req.Query,
-			DocumentIDs: searchResultDocumentIDs(result),
+			DocumentIDs: SearchResultDocumentIDs(result),
 			ResultCount: result.TotalCount,
 			DurationNs:  time.Since(start).Nanoseconds(),
 			ClientType:  "http",
@@ -723,11 +723,16 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	WriteJSON(w, http.StatusOK, result)
 }
 
-// searchResultDocumentIDs extracts document IDs from a search result in order.
-func searchResultDocumentIDs(result *domain.SearchResult) []string {
+// SearchResultDocumentIDs returns the document IDs from a SearchResult in
+// result order. Returns nil if the result is nil or has no entries.
+//
+// Useful when downstream handlers fire the RetrievalObserver hook from
+// their own search paths and need to populate SearchCompletedEvent.DocumentIDs
+// with the same extraction Core uses internally.
+func SearchResultDocumentIDs(result *domain.SearchResult) []string {
 	if result == nil || len(result.Results) == 0 {
 		return nil
 	}
@@ -757,7 +762,7 @@ func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing document id")
+		WriteError(w, http.StatusBadRequest, "missing document id")
 		return
 	}
 
@@ -765,9 +770,9 @@ func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "document not found")
+			WriteError(w, http.StatusNotFound, "document not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get document")
+			WriteError(w, http.StatusInternalServerError, "failed to get document")
 		}
 		return
 	}
@@ -790,7 +795,7 @@ func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	writeJSON(w, http.StatusOK, doc)
+	WriteJSON(w, http.StatusOK, doc)
 }
 
 // DocumentURLResponse represents the response containing a document's external URL
@@ -815,7 +820,7 @@ type DocumentURLResponse struct {
 func (s *Server) handleOpenDocument(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing document id")
+		WriteError(w, http.StatusBadRequest, "missing document id")
 		return
 	}
 
@@ -823,14 +828,14 @@ func (s *Server) handleOpenDocument(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "document not found")
+			WriteError(w, http.StatusNotFound, "document not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get document")
+			WriteError(w, http.StatusInternalServerError, "failed to get document")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, DocumentURLResponse{URL: doc.Path})
+	WriteJSON(w, http.StatusOK, DocumentURLResponse{URL: doc.Path})
 }
 
 // Source endpoints
@@ -848,11 +853,11 @@ func (s *Server) handleOpenDocument(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 	sources, err := s.sourceService.ListWithSummary(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list sources")
+		WriteError(w, http.StatusInternalServerError, "failed to list sources")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, sources)
+	WriteJSON(w, http.StatusOK, sources)
 }
 
 // handleGetSource godoc
@@ -871,7 +876,7 @@ func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
@@ -879,14 +884,14 @@ func (s *Server) handleGetSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get source")
+			WriteError(w, http.StatusInternalServerError, "failed to get source")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, source)
+	WriteJSON(w, http.StatusOK, source)
 }
 
 // handleCreateSource godoc
@@ -907,13 +912,13 @@ func (s *Server) handleGetSource(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateSource(w http.ResponseWriter, r *http.Request) {
 	authCtx := GetAuthContext(r.Context())
 	if authCtx == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	var req driving.CreateSourceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -921,16 +926,16 @@ func (s *Server) handleCreateSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrAlreadyExists:
-			writeError(w, http.StatusConflict, "source already exists")
+			WriteError(w, http.StatusConflict, "source already exists")
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid input")
+			WriteError(w, http.StatusBadRequest, "invalid input")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to create source")
+			WriteError(w, http.StatusInternalServerError, "failed to create source")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, source)
+	WriteJSON(w, http.StatusCreated, source)
 }
 
 // handleDeleteSource godoc
@@ -950,21 +955,21 @@ func (s *Server) handleCreateSource(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeleteSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
 	if err := s.sourceService.Delete(r.Context(), id); err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to delete source")
+			WriteError(w, http.StatusInternalServerError, "failed to delete source")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // SyncAcceptedResponse represents the response when sync is triggered
@@ -989,7 +994,7 @@ type SyncAcceptedResponse struct {
 func (s *Server) handleTriggerSync(w http.ResponseWriter, r *http.Request) {
 	sourceID := r.PathValue("id")
 	if sourceID == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
@@ -997,16 +1002,16 @@ func (s *Server) handleTriggerSync(w http.ResponseWriter, r *http.Request) {
 	source, err := s.sourceService.Get(r.Context(), sourceID)
 	if err != nil {
 		if err == domain.ErrNotFound {
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to get source")
+		WriteError(w, http.StatusInternalServerError, "failed to get source")
 		return
 	}
 
 	// Check if taskQueue is available
 	if s.taskQueue == nil {
-		writeError(w, http.StatusServiceUnavailable, "task queue not configured")
+		WriteError(w, http.StatusServiceUnavailable, "task queue not configured")
 		return
 	}
 
@@ -1014,11 +1019,11 @@ func (s *Server) handleTriggerSync(w http.ResponseWriter, r *http.Request) {
 	// Note: Using "default" as team_id since we're single-org
 	task := domain.NewSyncSourceTask("default", source.ID)
 	if err := s.taskQueue.Enqueue(r.Context(), task); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to enqueue sync task")
+		WriteError(w, http.StatusInternalServerError, "failed to enqueue sync task")
 		return
 	}
 
-	writeJSON(w, http.StatusAccepted, map[string]string{
+	WriteJSON(w, http.StatusAccepted, map[string]string{
 		"status":    "accepted",
 		"source_id": sourceID,
 		"task_id":   task.ID,
@@ -1041,11 +1046,11 @@ func (s *Server) handleTriggerSync(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := s.settingsService.Get(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get settings")
+		WriteError(w, http.StatusInternalServerError, "failed to get settings")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, settings)
+	WriteJSON(w, http.StatusOK, settings)
 }
 
 // handleUpdateSettings godoc
@@ -1065,23 +1070,23 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	authCtx := GetAuthContext(r.Context())
 	if authCtx == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	var req driving.UpdateSettingsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	settings, err := s.settingsService.Update(r.Context(), authCtx.UserID, req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update settings")
+		WriteError(w, http.StatusInternalServerError, "failed to update settings")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, settings)
+	WriteJSON(w, http.StatusOK, settings)
 }
 
 // AI Settings endpoints
@@ -1100,14 +1105,14 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetAISettings(w http.ResponseWriter, r *http.Request) {
 	aiSettings, err := s.settingsService.GetAISettings(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get AI settings")
+		WriteError(w, http.StatusInternalServerError, "failed to get AI settings")
 		return
 	}
 
 	// Get capabilities to determine credential availability
 	caps, err := s.capabilitiesService.GetCapabilities(r.Context(), getTeamID(r.Context()))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get capabilities")
+		WriteError(w, http.StatusInternalServerError, "failed to get capabilities")
 		return
 	}
 
@@ -1127,7 +1132,7 @@ func (s *Server) handleGetAISettings(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // isProviderConfigured checks if a provider is in the list of configured providers
@@ -1171,7 +1176,7 @@ type aiProviderInfo struct {
 func (s *Server) handleUpdateAISettings(w http.ResponseWriter, r *http.Request) {
 	var req driving.UpdateAISettingsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -1179,16 +1184,16 @@ func (s *Server) handleUpdateAISettings(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid AI configuration")
+			WriteError(w, http.StatusBadRequest, "invalid AI configuration")
 		case domain.ErrInvalidProvider:
-			writeError(w, http.StatusBadRequest, "unsupported AI provider")
+			WriteError(w, http.StatusBadRequest, "unsupported AI provider")
 		default:
-			writeError(w, http.StatusInternalServerError, err.Error())
+			WriteError(w, http.StatusInternalServerError, err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, status)
+	WriteJSON(w, http.StatusOK, status)
 }
 
 // handleGetAIStatus godoc
@@ -1204,11 +1209,11 @@ func (s *Server) handleUpdateAISettings(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleGetAIStatus(w http.ResponseWriter, r *http.Request) {
 	status, err := s.settingsService.GetAIStatus(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get AI status")
+		WriteError(w, http.StatusInternalServerError, "failed to get AI status")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, status)
+	WriteJSON(w, http.StatusOK, status)
 }
 
 // handleTestAIConnection godoc
@@ -1224,11 +1229,11 @@ func (s *Server) handleGetAIStatus(w http.ResponseWriter, r *http.Request) {
 // @Router       /settings/ai/test [post]
 func (s *Server) handleTestAIConnection(w http.ResponseWriter, r *http.Request) {
 	if err := s.settingsService.TestConnection(r.Context()); err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		WriteError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "connected"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "connected"})
 }
 
 // handleGetAIProviders godoc
@@ -1244,11 +1249,11 @@ func (s *Server) handleTestAIConnection(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleGetAIProviders(w http.ResponseWriter, r *http.Request) {
 	providers, err := s.settingsService.GetAIProviders(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get AI providers")
+		WriteError(w, http.StatusInternalServerError, "failed to get AI providers")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, providers)
+	WriteJSON(w, http.StatusOK, providers)
 }
 
 // Provider configuration endpoints
@@ -1266,17 +1271,17 @@ func (s *Server) handleGetAIProviders(w http.ResponseWriter, r *http.Request) {
 // @Router       /providers [get]
 func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 	if s.providerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "provider service not configured - set MASTER_KEY to enable")
+		WriteError(w, http.StatusServiceUnavailable, "provider service not configured - set MASTER_KEY to enable")
 		return
 	}
 
 	providers, err := s.providerService.List(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list providers")
+		WriteError(w, http.StatusInternalServerError, "failed to list providers")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, providers)
+	WriteJSON(w, http.StatusOK, providers)
 }
 
 // OAuth flow endpoints
@@ -1299,20 +1304,20 @@ func (s *Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 // @Router       /oauth/{provider}/authorize [post]
 func (s *Server) handleOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 	if s.oauthService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth service not configured")
 		return
 	}
 
 	providerType := domain.ProviderType(r.PathValue("provider"))
 	if providerType == "" {
-		writeError(w, http.StatusBadRequest, "missing provider type")
+		WriteError(w, http.StatusBadRequest, "missing provider type")
 		return
 	}
 
 	var req driving.AuthorizeRequest
 	if r.ContentLength > 0 {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid request body")
+			WriteError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 	}
@@ -1326,16 +1331,16 @@ func (s *Server) handleOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case driving.ErrOAuthProviderNotFound:
-			writeError(w, http.StatusNotFound, "provider not configured")
+			WriteError(w, http.StatusNotFound, "provider not configured")
 		case driving.ErrOAuthProviderDisabled:
-			writeError(w, http.StatusBadRequest, "provider is disabled")
+			WriteError(w, http.StatusBadRequest, "provider is disabled")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to start authorization: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to start authorization: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // handleOAuthCallback godoc
@@ -1431,27 +1436,27 @@ func (s *Server) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 // @Router       /connections [post]
 func (s *Server) handleCreateConnection(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	var req driving.CreateConnectionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON")
+		WriteError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
 
 	installation, err := s.connectionService.Create(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			writeError(w, http.StatusBadRequest, "missing required fields")
+			WriteError(w, http.StatusBadRequest, "missing required fields")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to create installation")
+		WriteError(w, http.StatusInternalServerError, "failed to create installation")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, installation)
+	WriteJSON(w, http.StatusCreated, installation)
 }
 
 // handleListConnections godoc
@@ -1467,17 +1472,17 @@ func (s *Server) handleCreateConnection(w http.ResponseWriter, r *http.Request) 
 // @Router       /connections [get]
 func (s *Server) handleListConnections(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	installations, err := s.connectionService.List(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list installations")
+		WriteError(w, http.StatusInternalServerError, "failed to list installations")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, installations)
+	WriteJSON(w, http.StatusOK, installations)
 }
 
 // handleGetConnection godoc
@@ -1496,13 +1501,13 @@ func (s *Server) handleListConnections(w http.ResponseWriter, r *http.Request) {
 // @Router       /connections/{id} [get]
 func (s *Server) handleGetConnection(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing connection id")
+		WriteError(w, http.StatusBadRequest, "missing connection id")
 		return
 	}
 
@@ -1510,14 +1515,14 @@ func (s *Server) handleGetConnection(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "installation not found")
+			WriteError(w, http.StatusNotFound, "installation not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get installation")
+			WriteError(w, http.StatusInternalServerError, "failed to get installation")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, installation)
+	WriteJSON(w, http.StatusOK, installation)
 }
 
 // handleDeleteConnection godoc
@@ -1537,13 +1542,13 @@ func (s *Server) handleGetConnection(w http.ResponseWriter, r *http.Request) {
 // @Router       /connections/{id} [delete]
 func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing connection id")
+		WriteError(w, http.StatusBadRequest, "missing connection id")
 		return
 	}
 
@@ -1551,16 +1556,16 @@ func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "installation not found")
+			WriteError(w, http.StatusNotFound, "installation not found")
 		case domain.ErrInUse:
-			writeError(w, http.StatusConflict, "installation is in use by one or more sources")
+			WriteError(w, http.StatusConflict, "installation is in use by one or more sources")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to delete installation")
+			WriteError(w, http.StatusInternalServerError, "failed to delete installation")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // handleListContainers godoc
@@ -1580,13 +1585,13 @@ func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) 
 // @Router       /connections/{id}/containers [get]
 func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing connection id")
+		WriteError(w, http.StatusBadRequest, "missing connection id")
 		return
 	}
 
@@ -1597,14 +1602,14 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "installation not found")
+			WriteError(w, http.StatusNotFound, "installation not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to list containers: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to list containers: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, containers)
+	WriteJSON(w, http.StatusOK, containers)
 }
 
 // handleGetConnectionSources godoc
@@ -1623,13 +1628,13 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request) {
 // @Router       /connections/{id}/sources [get]
 func (s *Server) handleGetConnectionSources(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing connection id")
+		WriteError(w, http.StatusBadRequest, "missing connection id")
 		return
 	}
 
@@ -1638,9 +1643,9 @@ func (s *Server) handleGetConnectionSources(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "connection not found")
+			WriteError(w, http.StatusNotFound, "connection not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get connection")
+			WriteError(w, http.StatusInternalServerError, "failed to get connection")
 		}
 		return
 	}
@@ -1648,11 +1653,11 @@ func (s *Server) handleGetConnectionSources(w http.ResponseWriter, r *http.Reque
 	// Get sources for this connection
 	sources, err := s.sourceService.ListByConnection(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list sources")
+		WriteError(w, http.StatusInternalServerError, "failed to list sources")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, sources)
+	WriteJSON(w, http.StatusOK, sources)
 }
 
 // handleTestConnection godoc
@@ -1671,13 +1676,13 @@ func (s *Server) handleGetConnectionSources(w http.ResponseWriter, r *http.Reque
 // @Router       /connections/{id}/test [post]
 func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	if s.connectionService == nil {
-		writeError(w, http.StatusServiceUnavailable, "connection service not configured")
+		WriteError(w, http.StatusServiceUnavailable, "connection service not configured")
 		return
 	}
 
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing connection id")
+		WriteError(w, http.StatusBadRequest, "missing connection id")
 		return
 	}
 
@@ -1685,14 +1690,14 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "installation not found")
+			WriteError(w, http.StatusNotFound, "installation not found")
 		default:
-			writeError(w, http.StatusServiceUnavailable, "connection test failed: "+err.Error())
+			WriteError(w, http.StatusServiceUnavailable, "connection test failed: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "connected"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "connected"})
 }
 
 // Source containers endpoint
@@ -1724,13 +1729,13 @@ type UpdateContainersRequest struct {
 func (s *Server) handleUpdateSourceContainers(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
 	var req UpdateContainersRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -1738,14 +1743,14 @@ func (s *Server) handleUpdateSourceContainers(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to update containers")
+			WriteError(w, http.StatusInternalServerError, "failed to update containers")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
 // Sync state endpoints
@@ -1766,13 +1771,13 @@ func (s *Server) handleUpdateSourceContainers(w http.ResponseWriter, r *http.Req
 // @Router       /sources/{id}/sync [get]
 func (s *Server) handleGetSyncState(w http.ResponseWriter, r *http.Request) {
 	if s.syncOrchestrator == nil {
-		writeError(w, http.StatusServiceUnavailable, "sync orchestrator not configured")
+		WriteError(w, http.StatusServiceUnavailable, "sync orchestrator not configured")
 		return
 	}
 
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
@@ -1780,14 +1785,14 @@ func (s *Server) handleGetSyncState(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get sync state: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to get sync state: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, state)
+	WriteJSON(w, http.StatusOK, state)
 }
 
 // handleListSyncStates godoc
@@ -1803,17 +1808,17 @@ func (s *Server) handleGetSyncState(w http.ResponseWriter, r *http.Request) {
 // @Router       /sources/sync-states [get]
 func (s *Server) handleListSyncStates(w http.ResponseWriter, r *http.Request) {
 	if s.syncOrchestrator == nil {
-		writeError(w, http.StatusServiceUnavailable, "sync orchestrator not configured")
+		WriteError(w, http.StatusServiceUnavailable, "sync orchestrator not configured")
 		return
 	}
 
 	states, err := s.syncOrchestrator.ListSyncStates(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list sync states: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to list sync states: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, states)
+	WriteJSON(w, http.StatusOK, states)
 }
 
 // Document chunk endpoints
@@ -1834,7 +1839,7 @@ func (s *Server) handleListSyncStates(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetDocumentChunks(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing document id")
+		WriteError(w, http.StatusBadRequest, "missing document id")
 		return
 	}
 
@@ -1842,14 +1847,14 @@ func (s *Server) handleGetDocumentChunks(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "document not found")
+			WriteError(w, http.StatusNotFound, "document not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get document chunks: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to get document chunks: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, doc)
+	WriteJSON(w, http.StatusOK, doc)
 }
 
 // Source document endpoints
@@ -1881,7 +1886,7 @@ type SourceDocumentsResponse struct {
 func (s *Server) handleListSourceDocuments(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
@@ -1905,9 +1910,9 @@ func (s *Server) handleListSourceDocuments(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to list documents: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to list documents: "+err.Error())
 		}
 		return
 	}
@@ -1915,11 +1920,11 @@ func (s *Server) handleListSourceDocuments(w http.ResponseWriter, r *http.Reques
 	// Get total count
 	total, err := s.docService.CountBySource(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to count documents: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to count documents: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, SourceDocumentsResponse{
+	WriteJSON(w, http.StatusOK, SourceDocumentsResponse{
 		Documents: docs,
 		Total:     total,
 		Limit:     limit,
@@ -1948,13 +1953,13 @@ func (s *Server) handleListSourceDocuments(w http.ResponseWriter, r *http.Reques
 func (s *Server) handleUpdateSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
 	var req driving.UpdateSourceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -1962,16 +1967,16 @@ func (s *Server) handleUpdateSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid source data")
+			WriteError(w, http.StatusBadRequest, "invalid source data")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to update source: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to update source: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, source)
+	WriteJSON(w, http.StatusOK, source)
 }
 
 // handleEnableSource godoc
@@ -1991,7 +1996,7 @@ func (s *Server) handleUpdateSource(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleEnableSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
@@ -1999,14 +2004,14 @@ func (s *Server) handleEnableSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to enable source: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to enable source: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "enabled"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "enabled"})
 }
 
 // handleDisableSource godoc
@@ -2026,7 +2031,7 @@ func (s *Server) handleEnableSource(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDisableSource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing source id")
+		WriteError(w, http.StatusBadRequest, "missing source id")
 		return
 	}
 
@@ -2034,14 +2039,14 @@ func (s *Server) handleDisableSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "source not found")
+			WriteError(w, http.StatusNotFound, "source not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to disable source: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to disable source: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "disabled"})
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "disabled"})
 }
 
 // Admin stats endpoints
@@ -2099,14 +2104,14 @@ func (s *Server) handleGetAdminStats(w http.ResponseWriter, r *http.Request) {
 	// Get document count
 	docCount, err := s.docService.Count(ctx)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get document count: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get document count: "+err.Error())
 		return
 	}
 
 	// Get sources and count enabled
 	sources, err := s.sourceService.List(ctx)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get sources: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get sources: "+err.Error())
 		return
 	}
 	enabledCount := 0
@@ -2138,7 +2143,7 @@ func (s *Server) handleGetAdminStats(w http.ResponseWriter, r *http.Request) {
 	// For now we report 0 and can enhance this later
 	chunkCount := 0
 
-	writeJSON(w, http.StatusOK, AdminStatsResponse{
+	WriteJSON(w, http.StatusOK, AdminStatsResponse{
 		Documents: DocumentStats{
 			Total: docCount,
 		},
@@ -2177,13 +2182,13 @@ func (s *Server) handleGetAdminStats(w http.ResponseWriter, r *http.Request) {
 // @Router       /admin/jobs [get]
 func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
@@ -2211,11 +2216,11 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 
 	history, err := s.adminService.ListJobs(r.Context(), teamID, req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list jobs: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to list jobs: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, history)
+	WriteJSON(w, http.StatusOK, history)
 }
 
 // handleGetUpcomingJobs godoc
@@ -2231,23 +2236,23 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 // @Router       /admin/jobs/upcoming [get]
 func (s *Server) handleGetUpcomingJobs(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
 	upcoming, err := s.adminService.GetUpcomingJobs(r.Context(), teamID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get upcoming jobs: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get upcoming jobs: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, upcoming)
+	WriteJSON(w, http.StatusOK, upcoming)
 }
 
 // handleGetJob godoc
@@ -2266,19 +2271,19 @@ func (s *Server) handleGetUpcomingJobs(w http.ResponseWriter, r *http.Request) {
 // @Router       /admin/jobs/{id} [get]
 func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
 	jobID := r.PathValue("id")
 	if jobID == "" {
-		writeError(w, http.StatusBadRequest, "missing job id")
+		WriteError(w, http.StatusBadRequest, "missing job id")
 		return
 	}
 
@@ -2286,16 +2291,16 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "job not found")
+			WriteError(w, http.StatusNotFound, "job not found")
 		case domain.ErrUnauthorized:
-			writeError(w, http.StatusForbidden, "job belongs to different team")
+			WriteError(w, http.StatusForbidden, "job belongs to different team")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get job: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to get job: "+err.Error())
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, job)
+	WriteJSON(w, http.StatusOK, job)
 }
 
 // handleGetJobStats godoc
@@ -2312,13 +2317,13 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 // @Router       /admin/jobs/stats [get]
 func (s *Server) handleGetJobStats(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
@@ -2329,11 +2334,11 @@ func (s *Server) handleGetJobStats(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := s.adminService.GetJobStats(r.Context(), teamID, period)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get job stats: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get job stats: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, stats)
+	WriteJSON(w, http.StatusOK, stats)
 }
 
 // handleGetSearchAnalytics godoc
@@ -2350,13 +2355,13 @@ func (s *Server) handleGetJobStats(w http.ResponseWriter, r *http.Request) {
 // @Router       /admin/search/analytics [get]
 func (s *Server) handleGetSearchAnalytics(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
@@ -2367,11 +2372,11 @@ func (s *Server) handleGetSearchAnalytics(w http.ResponseWriter, r *http.Request
 
 	analytics, err := s.adminService.GetSearchAnalytics(r.Context(), teamID, period)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get search analytics: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get search analytics: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, analytics)
+	WriteJSON(w, http.StatusOK, analytics)
 }
 
 // handleGetSearchHistory godoc
@@ -2388,13 +2393,13 @@ func (s *Server) handleGetSearchAnalytics(w http.ResponseWriter, r *http.Request
 // @Router       /admin/search/history [get]
 func (s *Server) handleGetSearchHistory(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
@@ -2407,11 +2412,11 @@ func (s *Server) handleGetSearchHistory(w http.ResponseWriter, r *http.Request) 
 
 	history, err := s.adminService.GetSearchHistory(r.Context(), teamID, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get search history: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get search history: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, history)
+	WriteJSON(w, http.StatusOK, history)
 }
 
 // handleGetSearchMetrics godoc
@@ -2428,13 +2433,13 @@ func (s *Server) handleGetSearchHistory(w http.ResponseWriter, r *http.Request) 
 // @Router       /admin/search/metrics [get]
 func (s *Server) handleGetSearchMetrics(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
@@ -2445,11 +2450,11 @@ func (s *Server) handleGetSearchMetrics(w http.ResponseWriter, r *http.Request) 
 
 	metrics, err := s.adminService.GetSearchMetrics(r.Context(), teamID, period)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get search metrics: "+err.Error())
+		WriteError(w, http.StatusInternalServerError, "failed to get search metrics: "+err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, metrics)
+	WriteJSON(w, http.StatusOK, metrics)
 }
 
 // TriggerReindexResponse represents the response from triggering a reindex
@@ -2475,19 +2480,19 @@ type TriggerReindexResponse struct {
 // @Router       /admin/reindex [post]
 func (s *Server) handleTriggerReindex(w http.ResponseWriter, r *http.Request) {
 	if s.adminService == nil {
-		writeError(w, http.StatusServiceUnavailable, "admin service not available")
+		WriteError(w, http.StatusServiceUnavailable, "admin service not available")
 		return
 	}
 
 	teamID := getTeamID(r.Context())
 	if teamID == "" {
-		writeError(w, http.StatusUnauthorized, "missing team context")
+		WriteError(w, http.StatusUnauthorized, "missing team context")
 		return
 	}
 
 	var req driving.TriggerReindexRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -2495,17 +2500,17 @@ func (s *Server) handleTriggerReindex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "one or more sources not found")
+			WriteError(w, http.StatusNotFound, "one or more sources not found")
 		case domain.ErrInvalidInput:
-			writeError(w, http.StatusBadRequest, "invalid reindex request")
+			WriteError(w, http.StatusBadRequest, "invalid reindex request")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to trigger reindex: "+err.Error())
+			WriteError(w, http.StatusInternalServerError, "failed to trigger reindex: "+err.Error())
 		}
 		return
 	}
 
 	message := fmt.Sprintf("Reindex triggered for %d source(s)", len(taskIDs))
-	writeJSON(w, http.StatusAccepted, TriggerReindexResponse{
+	WriteJSON(w, http.StatusAccepted, TriggerReindexResponse{
 		TaskIDs: taskIDs,
 		Message: message,
 	})
@@ -2527,12 +2532,22 @@ func getTeamID(ctx context.Context) string {
 
 // Helper functions
 
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
+// WriteJSON writes a JSON response with the given status code, setting
+// Content-Type: application/json. Encoding errors are silently dropped —
+// the status has already been written by that point, so there is no
+// recovery path.
+//
+// Exported so downstream apps composing routes via Server.RegisterRoute
+// can match Core's response conventions.
+func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+// WriteError writes a JSON error response of shape {"error": "<message>"}
+// with the given status code. Exported alongside WriteJSON so downstream
+// handlers return errors in the same envelope as Core's own endpoints.
+func WriteError(w http.ResponseWriter, status int, message string) {
+	WriteJSON(w, status, map[string]string{"error": message})
 }
