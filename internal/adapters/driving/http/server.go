@@ -75,6 +75,29 @@ func (s *Server) SetRetrievalObserver(obs driven.RetrievalObserver) {
 	s.retrievalObserver = obs
 }
 
+// RegisterRoute mounts an HTTP handler on the server's mux at the given
+// pattern, using Go 1.22 ServeMux pattern syntax (e.g., "GET /api/v1/foo",
+// "POST /things/{id}").
+//
+// Intended for downstream apps embedding Core that want to mount their own
+// routes (admin tooling, Prometheus exporters, deployment-specific health
+// checks) on the same HTTP surface as Core's API.
+//
+// Call before Start; routes registered after Start are not guaranteed to be
+// served. Not safe to call concurrently with in-flight requests.
+//
+// No middleware is applied — callers wrap with auth/CORS as needed. Patterns
+// that conflict with an already-registered route panic, matching ServeMux
+// behaviour.
+func (s *Server) RegisterRoute(pattern string, handler http.Handler) {
+	s.router.Handle(pattern, handler)
+}
+
+// RegisterRouteFunc is the http.HandlerFunc-taking variant of RegisterRoute.
+func (s *Server) RegisterRouteFunc(pattern string, handler http.HandlerFunc) {
+	s.router.HandleFunc(pattern, handler)
+}
+
 // Config holds server configuration
 type Config struct {
 	Host        string
