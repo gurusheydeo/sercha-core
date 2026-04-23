@@ -16,7 +16,7 @@ import (
 // GET /.well-known/oauth-authorization-server
 func (s *Server) handleOAuthServerMetadata(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
@@ -28,20 +28,20 @@ func (s *Server) handleOAuthServerMetadata(w http.ResponseWriter, r *http.Reques
 	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
 
 	metadata := s.oauthServerService.GetServerMetadata(baseURL)
-	writeJSON(w, http.StatusOK, metadata)
+	WriteJSON(w, http.StatusOK, metadata)
 }
 
 // handleDynamicClientRegistration handles RFC 7591 Dynamic Client Registration
 // POST /oauth/register
 func (s *Server) handleDynamicClientRegistration(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
 	var req domain.ClientRegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -49,21 +49,21 @@ func (s *Server) handleDynamicClientRegistration(w http.ResponseWriter, r *http.
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "invalid"):
-			writeError(w, http.StatusBadRequest, err.Error())
+			WriteError(w, http.StatusBadRequest, err.Error())
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to register client")
+			WriteError(w, http.StatusInternalServerError, "failed to register client")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, resp)
+	WriteJSON(w, http.StatusCreated, resp)
 }
 
 // handleOAuthServerAuthorize handles the authorization endpoint
 // GET /oauth/authorize - redirects to frontend for login + consent
 func (s *Server) handleOAuthServerAuthorize(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
@@ -81,11 +81,11 @@ func (s *Server) handleOAuthServerAuthorize(w http.ResponseWriter, r *http.Reque
 
 	// Validate required params before redirecting
 	if authReq.ClientID == "" {
-		writeError(w, http.StatusBadRequest, "client_id is required")
+		WriteError(w, http.StatusBadRequest, "client_id is required")
 		return
 	}
 	if authReq.RedirectURI == "" {
-		writeError(w, http.StatusBadRequest, "redirect_uri is required")
+		WriteError(w, http.StatusBadRequest, "redirect_uri is required")
 		return
 	}
 
@@ -119,7 +119,7 @@ func (s *Server) handleOAuthServerAuthorize(w http.ResponseWriter, r *http.Reque
 // Returns JSON with redirect_url for the frontend to navigate to
 func (s *Server) handleOAuthServerAuthorizeComplete(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
@@ -139,7 +139,7 @@ func (s *Server) handleOAuthServerAuthorizeComplete(w http.ResponseWriter, r *ht
 	// Get authenticated user from context (middleware ensures this exists)
 	authCtx := GetAuthContext(r.Context())
 	if authCtx == nil {
-		writeError(w, http.StatusUnauthorized, "missing authorization token")
+		WriteError(w, http.StatusUnauthorized, "missing authorization token")
 		return
 	}
 
@@ -181,7 +181,7 @@ func (s *Server) handleOAuthServerAuthorizeComplete(w http.ResponseWriter, r *ht
 	redirectURL.RawQuery = query.Encode()
 
 	// Return JSON for the frontend to redirect
-	writeJSON(w, http.StatusOK, map[string]string{
+	WriteJSON(w, http.StatusOK, map[string]string{
 		"redirect_url": redirectURL.String(),
 	})
 }
@@ -190,7 +190,7 @@ func (s *Server) handleOAuthServerAuthorizeComplete(w http.ResponseWriter, r *ht
 // POST /oauth/token - exchanges code/refresh_token for tokens
 func (s *Server) handleOAuthServerToken(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
@@ -248,14 +248,14 @@ func (s *Server) handleOAuthServerToken(w http.ResponseWriter, r *http.Request) 
 	// Success - return tokens with cache headers
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // handleOAuthServerRevoke handles token revocation
 // POST /oauth/revoke - revokes access or refresh token
 func (s *Server) handleOAuthServerRevoke(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
@@ -307,20 +307,20 @@ func (s *Server) handleProtectedResourceMetadata(w http.ResponseWriter, r *http.
 		"bearer_methods_supported": []string{"header"},
 	}
 
-	writeJSON(w, http.StatusOK, metadata)
+	WriteJSON(w, http.StatusOK, metadata)
 }
 
 // handleOAuthClientInfo returns non-sensitive public info about an OAuth client
 // GET /oauth/clients/{client_id}
 func (s *Server) handleOAuthClientInfo(w http.ResponseWriter, r *http.Request) {
 	if s.oauthServerService == nil {
-		writeError(w, http.StatusServiceUnavailable, "oauth server not configured")
+		WriteError(w, http.StatusServiceUnavailable, "oauth server not configured")
 		return
 	}
 
 	clientID := r.PathValue("client_id")
 	if clientID == "" {
-		writeError(w, http.StatusBadRequest, "client_id is required")
+		WriteError(w, http.StatusBadRequest, "client_id is required")
 		return
 	}
 
@@ -328,14 +328,14 @@ func (s *Server) handleOAuthClientInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case domain.ErrNotFound:
-			writeError(w, http.StatusNotFound, "client not found")
+			WriteError(w, http.StatusNotFound, "client not found")
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to get client info")
+			WriteError(w, http.StatusInternalServerError, "failed to get client info")
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, info)
+	WriteJSON(w, http.StatusOK, info)
 }
 
 // Helper functions
@@ -352,5 +352,5 @@ func writeOAuthError(w http.ResponseWriter, errorCode, description string) {
 		resp["error_description"] = description
 	}
 
-	writeJSON(w, http.StatusBadRequest, resp)
+	WriteJSON(w, http.StatusBadRequest, resp)
 }
