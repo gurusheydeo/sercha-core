@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -159,6 +160,32 @@ type CommitAuthor struct {
 	Email string    `json:"email"`
 	Date  time.Time `json:"date"`
 }
+
+// CompareFile is one entry in a Compare response's files array. status is
+// "added", "removed", "modified", "renamed", "copied", "changed", or
+// "unchanged". PreviousFilename is populated only when status is "renamed".
+type CompareFile struct {
+	SHA              string `json:"sha"`
+	Filename         string `json:"filename"`
+	Status           string `json:"status"`
+	PreviousFilename string `json:"previous_filename"`
+	Size             int64  `json:"size,omitempty"`
+}
+
+// CompareResponse is the subset of GET /repos/:owner/:repo/compare we use.
+// Status is "ahead", "behind", "identical", or "diverged". Files lists the
+// aggregated file-level changes across the commit range — this is the key
+// field for detecting adds/modifies/deletes/renames in phase 2.
+type CompareResponse struct {
+	Status string         `json:"status"`
+	Files  []*CompareFile `json:"files"`
+}
+
+// ErrCompareBaseNotFound signals that the base SHA (stored cursor) is no
+// longer reachable in the repo — most commonly because of a force-push that
+// rewrote history on the default branch. Callers should fall back to a full
+// tree snapshot for this tick.
+var ErrCompareBaseNotFound = errors.New("github: compare base SHA not reachable (force-push or branch deleted)")
 
 // ListReposResponse is the response from listing repositories.
 type ListReposResponse struct {
@@ -358,6 +385,50 @@ func (c *Client) GetFileContent(ctx context.Context, owner, repo, path string) (
 	}
 
 	return &content, nil
+}
+
+// GetCommitSHA resolves a ref (branch name, tag, or SHA) to the SHA of the
+// commit it points at right now. Used to capture the current head of the
+// default branch for storing in the connector's cursor.
+func (c *Client) GetCommitSHA(ctx context.Context, owner, repo, ref string) (string, error) {
+	path := fmt.Sprintf("/repos/%s/%s/commits/%s", owner, repo, ref)
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("decode commit: %w", err)
+	}
+	return result.SHA, nil
+}
+
+// CompareCommits returns the aggregated file-level diff between two commit
+// refs, used to drive incremental file sync. Callers get per-file add /
+// modify / remove / rename status across the full commit range in a single
+// API call. On 404 (base not reachable, typically from a force-push)
+// returns ErrCompareBaseNotFound so callers can fall back to a tree
+// snapshot.
+func (c *Client) CompareCommits(ctx context.Context, owner, repo, base, head string) (*CompareResponse, error) {
+	path := fmt.Sprintf("/repos/%s/%s/compare/%s...%s", owner, repo, base, head)
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "GitHub API error 404") {
+			return nil, ErrCompareBaseNotFound
+		}
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result CompareResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode compare: %w", err)
+	}
+	return &result, nil
 }
 
 // GetIssue gets a single issue by number.

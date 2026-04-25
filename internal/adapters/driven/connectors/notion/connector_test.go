@@ -792,3 +792,215 @@ func TestConnector_FetchChanges_SkipArchived(t *testing.T) {
 		t.Errorf("ExternalID = %q, want page-page-active", changes[0].ExternalID)
 	}
 }
+
+// TestReconciliationScopes_Notion — Notion has no native delete signal,
+// so both prefixes the connector emits must be in scope.
+func TestReconciliationScopes_Notion(t *testing.T) {
+	c := NewConnector(&stubTokenProvider{}, "", DefaultConfig())
+	scopes := c.ReconciliationScopes()
+	if len(scopes) != 2 {
+		t.Fatalf("want 2 scopes, got %v", scopes)
+	}
+	want := map[string]bool{"page-": false, "database-entry-": false}
+	for _, s := range scopes {
+		if _, ok := want[s]; ok {
+			want[s] = true
+		} else {
+			t.Errorf("unexpected scope %q", s)
+		}
+	}
+	for s, found := range want {
+		if !found {
+			t.Errorf("missing scope %q", s)
+		}
+	}
+}
+
+// notionInventoryServer collects /search and /databases/.../query
+// responses, dispatching by request body's filter.value to mimic
+// Notion's object-typed Search filter.
+type notionInventoryServer struct {
+	// Search responses keyed by filter object value: "page" or "database".
+	pages     []SearchResult
+	databases []SearchResult
+	// QueryDatabase entries keyed by database ID.
+	entries map[string][]Page
+
+	pageCalls   int
+	dbCalls     int
+	queryCalls  map[string]int
+	queryErrFor string
+}
+
+func newNotionInventoryServer() *notionInventoryServer {
+	return &notionInventoryServer{
+		entries:    map[string][]Page{},
+		queryCalls: map[string]int{},
+	}
+}
+
+func (n *notionInventoryServer) handler(t *testing.T) http.Handler {
+	t.Helper()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/v1/search"):
+			var body struct {
+				Filter *SearchFilter `json:"filter"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			val := ""
+			if body.Filter != nil {
+				if v, ok := body.Filter.Value.(string); ok {
+					val = v
+				}
+			}
+			w.WriteHeader(http.StatusOK)
+			switch val {
+			case "page":
+				n.pageCalls++
+				_ = json.NewEncoder(w).Encode(SearchResponse{Results: n.pages})
+			case "database":
+				n.dbCalls++
+				_ = json.NewEncoder(w).Encode(SearchResponse{Results: n.databases})
+			default:
+				_ = json.NewEncoder(w).Encode(SearchResponse{})
+			}
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/v1/databases/") && strings.HasSuffix(r.URL.Path, "/query"):
+			// /v1/databases/<id>/query
+			parts := strings.Split(r.URL.Path, "/")
+			dbID := parts[len(parts)-2]
+			n.queryCalls[dbID]++
+			if n.queryErrFor == dbID {
+				// 403 is non-retryable; avoids the client's 5xx backoff loop
+				// turning this into a multi-second test.
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(QueryDatabaseResponse{Results: n.entries[dbID]})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+}
+
+// TestInventory_Pages_WorkspaceWide — Inventory("page-") returns
+// canonical IDs for non-archived workspace pages, skipping pages whose
+// parent is a database (those belong to "database-entry-").
+func TestInventory_Pages_WorkspaceWide(t *testing.T) {
+	srv := newNotionInventoryServer()
+	srv.pages = []SearchResult{
+		{Object: "page", ID: "p-keep", Parent: Parent{Type: "workspace"}},
+		{Object: "page", ID: "p-archived", Parent: Parent{Type: "workspace"}, Archived: true},
+		{Object: "page", ID: "p-in-db", Parent: Parent{Type: "database_id", DatabaseID: "db-1"}},
+	}
+
+	ts := httptest.NewServer(srv.handler(t))
+	defer ts.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = ts.URL + "/v1"
+	c := NewConnector(&stubTokenProvider{}, "", cfg)
+
+	ids, err := c.Inventory(context.Background(), nil, "page-")
+	if err != nil {
+		t.Fatalf("Inventory: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != "page-p-keep" {
+		t.Errorf("inventory = %v, want [page-p-keep]", ids)
+	}
+}
+
+// TestInventory_DatabaseEntries_WorkspaceWide — Inventory("database-entry-")
+// walks Search-for-databases then QueryDatabase per database, accumulating
+// non-archived entries.
+func TestInventory_DatabaseEntries_WorkspaceWide(t *testing.T) {
+	srv := newNotionInventoryServer()
+	srv.databases = []SearchResult{
+		{Object: "database", ID: "db-1"},
+		{Object: "database", ID: "db-2"},
+	}
+	srv.entries["db-1"] = []Page{
+		{ID: "entry-a", Parent: Parent{Type: "database_id", DatabaseID: "db-1"}},
+		{ID: "entry-archived", Parent: Parent{Type: "database_id", DatabaseID: "db-1"}, Archived: true},
+	}
+	srv.entries["db-2"] = []Page{
+		{ID: "entry-b", Parent: Parent{Type: "database_id", DatabaseID: "db-2"}},
+	}
+
+	ts := httptest.NewServer(srv.handler(t))
+	defer ts.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = ts.URL + "/v1"
+	c := NewConnector(&stubTokenProvider{}, "", cfg)
+
+	ids, err := c.Inventory(context.Background(), nil, "database-entry-")
+	if err != nil {
+		t.Fatalf("Inventory: %v", err)
+	}
+	got := map[string]bool{}
+	for _, id := range ids {
+		got[id] = true
+	}
+	want := []string{"database-entry-entry-a", "database-entry-entry-b"}
+	for _, w := range want {
+		if !got[w] {
+			t.Errorf("inventory missing %q (got %v)", w, ids)
+		}
+	}
+	if got["database-entry-entry-archived"] {
+		t.Errorf("archived entry leaked into inventory: %v", ids)
+	}
+}
+
+// TestInventory_QueryDatabaseFailureSkipsThatDB — a single database
+// failing should not poison the rest of the inventory walk; we still
+// reconcile against what we did manage to enumerate.
+func TestInventory_QueryDatabaseFailureSkipsThatDB(t *testing.T) {
+	srv := newNotionInventoryServer()
+	srv.databases = []SearchResult{
+		{Object: "database", ID: "db-broken"},
+		{Object: "database", ID: "db-ok"},
+	}
+	srv.queryErrFor = "db-broken"
+	srv.entries["db-ok"] = []Page{
+		{ID: "entry-ok", Parent: Parent{Type: "database_id", DatabaseID: "db-ok"}},
+	}
+
+	ts := httptest.NewServer(srv.handler(t))
+	defer ts.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = ts.URL + "/v1"
+	c := NewConnector(&stubTokenProvider{}, "", cfg)
+
+	ids, err := c.Inventory(context.Background(), nil, "database-entry-")
+	if err != nil {
+		t.Fatalf("Inventory: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != "database-entry-entry-ok" {
+		t.Errorf("inventory = %v, want [database-entry-entry-ok]", ids)
+	}
+}
+
+// TestInventory_FailsWhenSearchPagesError — the page-listing search
+// itself failing must surface an error and not return a partial set.
+func TestInventory_FailsWhenSearchPagesError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer ts.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = ts.URL + "/v1"
+	c := NewConnector(&stubTokenProvider{}, "", cfg)
+
+	ids, err := c.Inventory(context.Background(), nil, "page-")
+	if err == nil {
+		t.Fatalf("expected error, got %d ids and nil err", len(ids))
+	}
+	if ids != nil {
+		t.Errorf("partial inventory leaked: %v", ids)
+	}
+}
