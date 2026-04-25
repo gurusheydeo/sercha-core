@@ -479,10 +479,14 @@ func computeContentHash(content string) string {
 // Search/QueryDatabase responses — so every prefix the connector emits
 // must be covered by phase-1 reconciliation.
 //
-// Caveat: Notion's Search API does not document stable ordering across
-// paginated calls (#100 finding 7). For very large workspaces this can
-// admit a small risk that an item shifts pages mid-walk and is reported
-// missing by Inventory, leading to a false delete. Best-effort by design.
+// Caveat (#100 finding 7): Notion's Search API does not document stable
+// ordering across paginated calls. A multi-page Inventory walk therefore
+// admits a small risk that an item shifts pages mid-enumeration and is
+// reported missing, leading reconciliation to delete a live page or
+// database. Single-page walks are implicitly consistent. The Inventory
+// implementations log a warning when they paginate so operators can
+// correlate any spurious deletions with the actual risk window.
+// Reconciliation is best-effort under that caveat.
 func (c *Connector) ReconciliationScopes() []string {
 	return []string{"page-", "database-entry-"}
 }
@@ -528,12 +532,14 @@ func (c *Connector) inventoryPages(ctx context.Context) ([]string, error) {
 
 	var ids []string
 	cursor := ""
+	pages := 0
 	filter := &SearchFilter{Property: "object", Value: "page"}
 	for {
 		resp, err := c.client.Search(ctx, filter, cursor)
 		if err != nil {
 			return nil, fmt.Errorf("inventory pages: %w", err)
 		}
+		pages++
 		for _, result := range resp.Results {
 			if result.Object != "page" {
 				continue
@@ -550,6 +556,19 @@ func (c *Connector) inventoryPages(ctx context.Context) ([]string, error) {
 			break
 		}
 		cursor = resp.NextCursor
+	}
+	// Notion's Search API does not guarantee stable ordering across
+	// paginated calls. A single-page walk is implicitly consistent;
+	// multi-page walks open a small window for an item to shift pages
+	// mid-enumeration and be falsely reported as missing — which would
+	// cause reconciliation to delete a live page. Surface this so
+	// operators can correlate any spurious deletions with the warning.
+	if pages > 1 {
+		slog.Warn("notion: inventory walk paginated; Search ordering is not stable across pages, deletes are best-effort",
+			"scope", "page-",
+			"pages_fetched", pages,
+			"items_collected", len(ids),
+		)
 	}
 	return ids, nil
 }
@@ -572,12 +591,14 @@ func (c *Connector) inventoryDatabaseEntries(ctx context.Context) ([]string, err
 	// Workspace-wide: find every accessible database, then walk each.
 	var databaseIDs []string
 	cursor := ""
+	pages := 0
 	filter := &SearchFilter{Property: "object", Value: "database"}
 	for {
 		resp, err := c.client.Search(ctx, filter, cursor)
 		if err != nil {
 			return nil, fmt.Errorf("inventory: list databases: %w", err)
 		}
+		pages++
 		for _, result := range resp.Results {
 			if result.Object != "database" {
 				continue
@@ -591,6 +612,18 @@ func (c *Connector) inventoryDatabaseEntries(ctx context.Context) ([]string, err
 			break
 		}
 		cursor = resp.NextCursor
+	}
+	// Same ordering caveat as inventoryPages: Search is not stable
+	// across paginated calls, so a multi-page walk for the database
+	// list could legitimately miss a database and miss every entry
+	// inside it. Per-database QueryDatabase walks below are
+	// deterministic, so this is the only Search-instability site here.
+	if pages > 1 {
+		slog.Warn("notion: database-list inventory walk paginated; Search ordering is not stable across pages, deletes are best-effort",
+			"scope", "database-entry-",
+			"pages_fetched", pages,
+			"databases_found", len(databaseIDs),
+		)
 	}
 
 	var ids []string

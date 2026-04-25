@@ -1007,6 +1007,80 @@ func TestInventory_FailsWhenSearchPagesError(t *testing.T) {
 	}
 }
 
+// TestInventory_PagesWarnsOnPagination asserts that the Notion Search
+// ordering risk (#100 finding 7) is surfaced as a runtime warning when
+// — and only when — the inventory walk actually paginates. The risk
+// window only opens with multi-page walks; single-page walks are
+// inherently consistent and should produce no warning noise.
+func TestInventory_PagesWarnsOnPagination(t *testing.T) {
+	t.Run("single page emits no warning", func(t *testing.T) {
+		prev := slog.Default()
+		t.Cleanup(func() { slog.SetDefault(prev) })
+		var buf bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(SearchResponse{
+				Results: []SearchResult{{Object: "page", ID: "p", Parent: Parent{Type: "workspace"}}},
+			})
+		}))
+		defer ts.Close()
+
+		cfg := DefaultConfig()
+		cfg.APIBaseURL = ts.URL + "/v1"
+		c := NewConnector(&stubTokenProvider{}, "", cfg)
+		if _, err := c.Inventory(context.Background(), nil, "page-"); err != nil {
+			t.Fatalf("Inventory: %v", err)
+		}
+		if strings.Contains(buf.String(), "Search ordering") {
+			t.Errorf("single-page walk should not warn, got: %q", buf.String())
+		}
+	})
+
+	t.Run("multi-page emits warning", func(t *testing.T) {
+		prev := slog.Default()
+		t.Cleanup(func() { slog.SetDefault(prev) })
+		var buf bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+
+		hits := 0
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hits++
+			w.WriteHeader(http.StatusOK)
+			if hits == 1 {
+				_ = json.NewEncoder(w).Encode(SearchResponse{
+					Results:    []SearchResult{{Object: "page", ID: "p1", Parent: Parent{Type: "workspace"}}},
+					HasMore:    true,
+					NextCursor: "next",
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(SearchResponse{
+				Results: []SearchResult{{Object: "page", ID: "p2", Parent: Parent{Type: "workspace"}}},
+			})
+		}))
+		defer ts.Close()
+
+		cfg := DefaultConfig()
+		cfg.APIBaseURL = ts.URL + "/v1"
+		c := NewConnector(&stubTokenProvider{}, "", cfg)
+		ids, err := c.Inventory(context.Background(), nil, "page-")
+		if err != nil {
+			t.Fatalf("Inventory: %v", err)
+		}
+		if len(ids) != 2 {
+			t.Errorf("want 2 ids, got %v", ids)
+		}
+		if !strings.Contains(buf.String(), "Search ordering is not stable") {
+			t.Errorf("multi-page walk should warn about ordering risk, got: %q", buf.String())
+		}
+		if !strings.Contains(buf.String(), "pages_fetched=2") {
+			t.Errorf("warning should report page count, got: %q", buf.String())
+		}
+	})
+}
+
 // TestFetchChanges_LogsAndSkipsFailedItem — when one item's per-item
 // fetch fails, the loop logs at WARN and continues. The successful
 // item is still emitted; the cursor advances to the successful item's
