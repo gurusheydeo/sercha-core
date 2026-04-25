@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors/microsoft"
@@ -71,71 +72,102 @@ func (c *Connector) ValidateConfig(config domain.SourceConfig) error {
 // FetchChanges fetches document changes from OneDrive using delta queries.
 // For initial sync (empty cursor), it fetches all content.
 // For incremental sync, it uses the delta link from the cursor.
+//
+// Microsoft Graph paginates large delta responses with @odata.nextLink
+// for in-cycle continuation and ends the cycle with @odata.deltaLink
+// (the cursor to store for the next tick). Items dropped by our
+// filters — folders, oversize files, container-mismatches, content
+// fetch errors — are not re-emitted by Graph on subsequent ticks, so
+// the entire cycle MUST be drained inside one FetchChanges call. The
+// loop below paginates until DeltaLink is provided, switching the
+// stored cursor to that final value before returning.
 func (c *Connector) FetchChanges(ctx context.Context, source *domain.Source, cursor string) ([]*domain.Change, string, error) {
 	var changes []*domain.Change
+	pageCursor := cursor
+	newCursor := cursor
 
-	// Use delta query to track changes
-	deltaResp, err := c.client.GetDelta(ctx, cursor)
-	if err != nil {
-		return nil, "", fmt.Errorf("get delta: %w", err)
-	}
-
-	for _, item := range deltaResp.Value {
-		// Skip folders (we only index files)
-		if item.IsFolder() {
-			continue
+	for {
+		select {
+		case <-ctx.Done():
+			return changes, newCursor, ctx.Err()
+		default:
 		}
 
-		// Skip deleted items
-		if item.IsDeleted() {
-			change := &domain.Change{
-				Type:       domain.ChangeTypeDeleted,
-				ExternalID: fmt.Sprintf("file-%s", item.ID),
-			}
-			changes = append(changes, change)
-			continue
+		deltaResp, err := c.client.GetDelta(ctx, pageCursor)
+		if err != nil {
+			return nil, "", fmt.Errorf("get delta: %w", err)
 		}
 
-		// Skip if not a file
-		if !item.IsFile() {
-			continue
-		}
-
-		// Skip large files
-		if item.Size > c.config.MaxFileSize {
-			continue
-		}
-
-		// If containerID is specified, filter by folder
-		if c.containerID != "" {
-			if !c.isInContainer(item) {
+		for _, item := range deltaResp.Value {
+			// Skip folders (we only index files)
+			if item.IsFolder() {
 				continue
 			}
+
+			// Skip deleted items — these are emitted as ChangeTypeDeleted
+			// directly because Graph natively signals deletion via the
+			// @removed facet, and the delete must reach the orchestrator
+			// before the cursor advances past it.
+			if item.IsDeleted() {
+				change := &domain.Change{
+					Type:       domain.ChangeTypeDeleted,
+					ExternalID: fmt.Sprintf("file-%s", item.ID),
+				}
+				changes = append(changes, change)
+				continue
+			}
+
+			// Skip if not a file
+			if !item.IsFile() {
+				continue
+			}
+
+			// Skip large files
+			if item.Size > c.config.MaxFileSize {
+				continue
+			}
+
+			// If containerID is specified, filter by folder
+			if c.containerID != "" {
+				if !c.isInContainer(item) {
+					continue
+				}
+			}
+
+			// Fetch file content
+			content, err := c.client.GetDriveItemContent(ctx, item.ID)
+			if err != nil {
+				slog.Warn("onedrive: content fetch failed; skipping",
+					"item_id", item.ID,
+					"name", item.Name,
+					"error", err,
+				)
+				continue
+			}
+
+			doc := c.driveItemToDocument(&item)
+			change := &domain.Change{
+				Type:       domain.ChangeTypeModified,
+				ExternalID: fmt.Sprintf("file-%s", item.ID),
+				Document:   doc,
+				Content:    string(content),
+			}
+
+			changes = append(changes, change)
 		}
 
-		// Fetch file content
-		content, err := c.client.GetDriveItemContent(ctx, item.ID)
-		if err != nil {
-			// Log error but continue with other files
-			continue
+		// Microsoft documents two pagination terminators: DeltaLink ends
+		// the cycle (this is the cursor for the next tick); NextLink
+		// continues the same cycle (must be drained now). If both are
+		// empty, treat the cycle as ended at the current page.
+		if deltaResp.DeltaLink != "" {
+			newCursor = deltaResp.DeltaLink
+			break
 		}
-
-		doc := c.driveItemToDocument(&item)
-		change := &domain.Change{
-			Type:       domain.ChangeTypeModified,
-			ExternalID: fmt.Sprintf("file-%s", item.ID),
-			Document:   doc,
-			Content:    string(content),
+		if deltaResp.NextLink == "" {
+			break
 		}
-
-		changes = append(changes, change)
-	}
-
-	// Update cursor to delta link for next sync
-	newCursor := deltaResp.DeltaLink
-	if newCursor == "" && deltaResp.NextLink != "" {
-		// If there are more pages, continue with nextLink
-		newCursor = deltaResp.NextLink
+		pageCursor = deltaResp.NextLink
 	}
 
 	return changes, newCursor, nil

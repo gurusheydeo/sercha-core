@@ -702,3 +702,131 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("MaxFileSize = %d, want 104857600 (100 MB)", cfg.MaxFileSize)
 	}
 }
+
+// TestFetchChanges_DrainsMultipleDeltaPages — Microsoft Graph paginates
+// large delta responses with @odata.nextLink. Items are not re-emitted
+// on subsequent ticks, so FetchChanges MUST drain every nextLink in
+// one call before returning the final deltaLink as the cursor.
+func TestFetchChanges_DrainsMultipleDeltaPages(t *testing.T) {
+	deltaCalls := 0
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/content") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("body"))
+			return
+		}
+		if !strings.Contains(r.URL.Path, "/delta") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		deltaCalls++
+		w.WriteHeader(http.StatusOK)
+		switch deltaCalls {
+		case 1:
+			_ = json.NewEncoder(w).Encode(microsoft.DeltaResponse{
+				Value: []microsoft.DriveItem{{
+					ID: "f1", Name: "a.txt", Size: 10,
+					File:            &microsoft.FileFacet{MimeType: "text/plain"},
+					ParentReference: &microsoft.ItemReference{ID: "root", Path: "/drive/root:"},
+				}},
+				NextLink: server.URL + "/v1.0/me/drive/root/delta?token=page2",
+			})
+		case 2:
+			_ = json.NewEncoder(w).Encode(microsoft.DeltaResponse{
+				Value: []microsoft.DriveItem{{
+					ID: "f2", Name: "b.txt", Size: 10,
+					File:            &microsoft.FileFacet{MimeType: "text/plain"},
+					ParentReference: &microsoft.ItemReference{ID: "root", Path: "/drive/root:"},
+				}},
+				NextLink: server.URL + "/v1.0/me/drive/root/delta?token=page3",
+			})
+		case 3:
+			_ = json.NewEncoder(w).Encode(microsoft.DeltaResponse{
+				Value: []microsoft.DriveItem{{
+					ID: "f3", Name: "c.txt", Size: 10,
+					File:            &microsoft.FileFacet{MimeType: "text/plain"},
+					ParentReference: &microsoft.ItemReference{ID: "root", Path: "/drive/root:"},
+				}},
+				DeltaLink: "https://graph.microsoft.com/v1.0/me/drive/root/delta?token=final",
+			})
+		}
+	}))
+	defer server.Close()
+
+	cfg := &Config{
+		RateLimitRPS:   100.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+		MaxFileSize:    100 * 1024 * 1024,
+	}
+	c := NewConnector(&stubTokenProvider{}, "", cfg)
+	c.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
+		BaseURL:        server.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+	})
+
+	changes, cursor, err := c.FetchChanges(context.Background(), &domain.Source{ID: "src"}, "")
+	if err != nil {
+		t.Fatalf("FetchChanges: %v", err)
+	}
+	if deltaCalls != 3 {
+		t.Errorf("expected 3 delta page fetches, got %d", deltaCalls)
+	}
+	if len(changes) != 3 {
+		t.Errorf("expected 3 changes (one per page), got %d", len(changes))
+	}
+	want := map[string]bool{"file-f1": true, "file-f2": true, "file-f3": true}
+	for _, ch := range changes {
+		if !want[ch.ExternalID] {
+			t.Errorf("unexpected change %q", ch.ExternalID)
+		}
+	}
+	if !strings.Contains(cursor, "token=final") {
+		t.Errorf("cursor should be the final deltaLink, got %q", cursor)
+	}
+}
+
+// TestFetchChanges_StopsWhenNeitherLinkPresent — defensive: if Graph
+// ever returns a response with no DeltaLink AND no NextLink (shouldn't
+// happen in practice but the schema technically allows), the loop
+// terminates rather than spinning. Cursor is left unchanged so the
+// next tick retries the same starting point.
+func TestFetchChanges_StopsWhenNeitherLinkPresent(t *testing.T) {
+	hits := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/delta") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		hits++
+		w.WriteHeader(http.StatusOK)
+		// No DeltaLink, no NextLink — loop must break.
+		_ = json.NewEncoder(w).Encode(microsoft.DeltaResponse{Value: nil})
+	}))
+	defer ts.Close()
+
+	cfg := &Config{
+		RateLimitRPS:   100.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+		MaxFileSize:    100 * 1024 * 1024,
+	}
+	c := NewConnector(&stubTokenProvider{}, "", cfg)
+	c.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+	})
+
+	if _, _, err := c.FetchChanges(context.Background(), &domain.Source{ID: "src"}, ""); err != nil {
+		t.Fatalf("FetchChanges: %v", err)
+	}
+	if hits != 1 {
+		t.Errorf("expected exactly 1 delta call when no continuation links, got %d", hits)
+	}
+}
