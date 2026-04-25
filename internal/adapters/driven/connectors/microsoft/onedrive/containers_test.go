@@ -109,8 +109,8 @@ func TestContainerLister_ListContainers_Root(t *testing.T) {
 		t.Errorf("Container[0].Metadata['web_url'] = %q", c1.Metadata["web_url"])
 	}
 
-	if c1.Metadata["child_count"] != "10" {
-		t.Errorf("Container[0].Metadata['child_count'] = %q, want 10", c1.Metadata["child_count"])
+	if c1.Metadata["child_count"] != 10 {
+		t.Errorf("Container[0].Metadata['child_count'] = %v, want 10", c1.Metadata["child_count"])
 	}
 
 	// Check second container (empty folder)
@@ -558,8 +558,8 @@ func TestContainerLister_MetadataFormatting(t *testing.T) {
 		t.Errorf("Metadata['modified_datetime'] = %q, want 2024-03-20", c.Metadata["modified_datetime"])
 	}
 
-	if c.Metadata["child_count"] != "42" {
-		t.Errorf("Metadata['child_count'] = %q, want 42", c.Metadata["child_count"])
+	if c.Metadata["child_count"] != 42 {
+		t.Errorf("Metadata['child_count'] = %v, want 42", c.Metadata["child_count"])
 	}
 
 	if c.Description != "Folder with 42 items" {

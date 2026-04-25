@@ -38,10 +38,10 @@ func (l *ContainerLister) ListContainers(ctx context.Context, cursor string, _ s
 			Name:        repo.Name,
 			Description: repo.Description,
 			Type:        "repository",
-			Metadata: map[string]string{
+			Metadata: map[string]any{
 				"owner":          repo.Owner,
-				"private":        fmt.Sprintf("%t", repo.Private),
-				"archived":       fmt.Sprintf("%t", repo.Archived),
+				"private":        repo.Private,
+				"archived":       repo.Archived,
 				"default_branch": repo.DefaultBranch,
 				"html_url":       repo.HTMLURL,
 			},

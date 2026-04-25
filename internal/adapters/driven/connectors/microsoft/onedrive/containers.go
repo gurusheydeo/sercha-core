@@ -73,7 +73,7 @@ func (l *ContainerLister) ListContainers(ctx context.Context, cursor string, par
 			ID:   containerID,
 			Name: item.Name,
 			Type: "folder",
-			Metadata: map[string]string{
+			Metadata: map[string]any{
 				"web_url":           item.WebURL,
 				"created_datetime":  item.CreatedDateTime.Format("2006-01-02"),
 				"modified_datetime": item.LastModifiedDateTime.Format("2006-01-02"),
@@ -82,7 +82,7 @@ func (l *ContainerLister) ListContainers(ctx context.Context, cursor string, par
 
 		if item.Folder != nil {
 			container.Description = fmt.Sprintf("Folder with %d items", item.Folder.ChildCount)
-			container.Metadata["child_count"] = fmt.Sprintf("%d", item.Folder.ChildCount)
+			container.Metadata["child_count"] = item.Folder.ChildCount
 			// Enable folder navigation if there are child items
 			container.HasChildren = item.Folder.ChildCount > 0
 		}
