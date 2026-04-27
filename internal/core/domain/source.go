@@ -24,11 +24,17 @@ type Source struct {
 
 // Container represents a selectable unit within a connection.
 // Examples: a repository, a Slack channel, a Drive folder, a Notion database.
+//
+// Metadata mirrors driven.Container.Metadata's map[string]any shape — values
+// arrive from connector listings (booleans, ints, strings) and the UI
+// re-sends them on /sources POST. A typed map[string]string here would
+// reject any container whose lister reports non-string metadata (e.g.
+// GitHub's `private`/`fork` booleans, OneDrive's int `child_count`).
 type Container struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name"`
-	Type     string            `json:"type,omitempty"`
-	Metadata map[string]string `json:"metadata,omitempty"`
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Type     string         `json:"type,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // SourceConfig holds provider-specific configuration

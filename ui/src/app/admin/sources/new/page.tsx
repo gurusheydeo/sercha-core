@@ -20,7 +20,6 @@ import {
   listProviders,
   listSources,
   listConnections,
-  getCapabilities,
   startOAuth,
   getConnection,
   getConnectionContainers,
@@ -74,15 +73,12 @@ function AddSourceWizardContent() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const [caps, providerList] = await Promise.all([
-          getCapabilities(),
-          listProviders(),
-        ]);
+        const providerList = await listProviders();
 
-        // Filter providers to only show those configured in environment
-        const configuredProviders = providerList.filter((p) =>
-          caps.oauth_providers.includes(p.type)
-        );
+        // Filter providers to only show those whose OAuth platform is
+        // configured in the environment. ProviderListItem.enabled is set
+        // server-side from IsOAuthConfigured(platform).
+        const configuredProviders = providerList.filter((p) => p.enabled);
         setProviders(configuredProviders);
 
         // Handle OAuth callback return (connection_id and provider come from URL)
@@ -681,7 +677,13 @@ function AddSourceWizardContent() {
                 {searchQuery ? "No matching items found" : "No folders found"}
               </div>
             ) : (
-              filteredContainers.map((container) => (
+              filteredContainers.map((container) => {
+                const meta = container.metadata as
+                  | { private?: boolean; fork?: boolean; parent_full_name?: string }
+                  | undefined;
+                const primaryLabel =
+                  container.type === "repository" ? container.id : container.name;
+                return (
                 <div
                   key={container.id}
                   className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-sercha-mist"
@@ -697,15 +699,24 @@ function AddSourceWizardContent() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-sercha-ink-slate">
-                      {container.name}
+                      {primaryLabel}
                     </p>
-                    {container.description && (
+                    {meta?.fork && meta.parent_full_name ? (
+                      <p className="truncate text-xs text-sercha-fog-grey">
+                        Fork of {meta.parent_full_name}
+                      </p>
+                    ) : container.description ? (
                       <p className="truncate text-xs text-sercha-fog-grey">
                         {container.description}
                       </p>
-                    )}
+                    ) : null}
                   </div>
-                  {(container.metadata as { private?: boolean } | undefined)?.private && (
+                  {meta?.fork === true && (
+                    <span className="rounded-full bg-sercha-mist px-2 py-0.5 text-xs text-sercha-fog-grey shrink-0">
+                      Fork
+                    </span>
+                  )}
+                  {meta?.private === true && (
                     <span className="rounded-full bg-sercha-mist px-2 py-0.5 text-xs text-sercha-fog-grey shrink-0">
                       Private
                     </span>
@@ -721,7 +732,8 @@ function AddSourceWizardContent() {
                     </button>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
             </>

@@ -46,6 +46,8 @@ type Repository struct {
 	Description   string           `json:"description"`
 	Private       bool             `json:"private"`
 	Archived      bool             `json:"archived"`
+	Fork          bool             `json:"fork"`
+	Parent        *Repository      `json:"parent"`
 	HTMLURL       string           `json:"html_url"`
 	DefaultBranch string           `json:"default_branch"`
 }
@@ -226,9 +228,13 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, cursor string) (*ListR
 		}
 	}
 
-	// Check if there are more pages
+	// GitHub's Link header is the authoritative pagination signal. The
+	// `len(repos) == 100` heuristic this replaced silently truncated
+	// whenever a page returned <100 — fine for full pages, broken for any
+	// repo whose final page happens to be smaller (which is most of them)
+	// or where filtering downstream of the API thins out a page.
 	nextCursor := ""
-	if len(repos) == 100 {
+	if hasNextPage(resp.Header.Get("Link")) {
 		nextCursor = strconv.Itoa(page + 1)
 	}
 
@@ -236,6 +242,12 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, cursor string) (*ListR
 		Repos:      repos,
 		NextCursor: nextCursor,
 	}, nil
+}
+
+// hasNextPage reports whether GitHub's Link header advertises a next page.
+// Format reference: https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api
+func hasNextPage(linkHeader string) bool {
+	return strings.Contains(linkHeader, `rel="next"`)
 }
 
 // ValidateRepoAccess checks if the authenticated user has access to a repository.
@@ -302,7 +314,7 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, since *time
 	}
 
 	nextCursor := ""
-	if len(issues) == 100 {
+	if hasNextPage(resp.Header.Get("Link")) {
 		nextCursor = strconv.Itoa(page + 1)
 	}
 
@@ -335,7 +347,7 @@ func (c *Client) ListPullRequests(ctx context.Context, owner, repo string, curso
 	}
 
 	nextCursor := ""
-	if len(prs) == 100 {
+	if hasNextPage(resp.Header.Get("Link")) {
 		nextCursor = strconv.Itoa(page + 1)
 	}
 
