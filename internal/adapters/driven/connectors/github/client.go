@@ -700,3 +700,35 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 
 	return resp, nil
 }
+
+// Do implements driven.RESTClient. Wraps doRequest with JSON encode/decode
+// so callers that hold this Client through the RESTClient port can invoke
+// GitHub endpoints not covered by the typed methods above while reusing
+// the same auth, rate-limit, and retry behaviour.
+func (c *Client) Do(ctx context.Context, method, path string, body, result any) error {
+	var bodyReader io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("marshal request body: %w", err)
+		}
+		bodyReader = strings.NewReader(string(buf))
+	}
+
+	resp, err := c.doRequest(ctx, method, path, bodyReader)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if result == nil {
+		return nil
+	}
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("decode response: %w", err)
+	}
+	return nil
+}
+
+// Compile-time assertion that *Client satisfies the RESTClient port.
+var _ driven.RESTClient = (*Client)(nil)
