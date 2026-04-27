@@ -509,7 +509,7 @@ func main() {
 
 	// Create pipeline builder and executors
 	pipelineBuilder := pipelineexec.NewPipelineBuilder(stageRegistry)
-	indexingExecutor := pipelineexec.NewIndexingExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry, nil, stageRegistry)
+	indexingExecutor := pipelineexec.NewIndexingExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry, stageRegistry)
 	searchExecutor := pipelineexec.NewSearchExecutor(pipelineBuilder, pipelineRegistry, capabilityRegistry, stageRegistry)
 
 	log.Println("Pipeline infrastructure initialized")
