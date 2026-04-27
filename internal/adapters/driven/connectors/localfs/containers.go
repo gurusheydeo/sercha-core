@@ -63,10 +63,10 @@ func (l *ContainerLister) ListContainers(ctx context.Context, cursor string, _ s
 			Name:        entry.Name(),
 			Description: fmt.Sprintf("%d files", fileCount),
 			Type:        "directory",
-			Metadata: map[string]string{
+			Metadata: map[string]any{
 				"full_path":  filepath.Join(l.basePath, entry.Name()),
 				"mod_time":   info.ModTime().Format("2006-01-02 15:04:05"),
-				"file_count": fmt.Sprintf("%d", fileCount),
+				"file_count": fileCount,
 			},
 		})
 	}

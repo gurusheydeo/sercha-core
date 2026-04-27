@@ -36,10 +36,11 @@ type Container struct {
 	HasChildren bool `json:"has_children,omitempty"`
 
 	// Metadata contains provider-specific additional data.
+	// Values may be any JSON-encodable type (booleans, ints, strings).
 	// Examples:
-	//   - GitHub: {"owner": "...", "private": "true", "archived": "false"}
-	//   - Google Drive: {"shared": "true"}
-	Metadata map[string]string `json:"metadata,omitempty"`
+	//   - GitHub: {"owner": "octocat", "private": true, "archived": false}
+	//   - Google Drive: {"shared": true}
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // ContainerLister lists available containers for a connector.

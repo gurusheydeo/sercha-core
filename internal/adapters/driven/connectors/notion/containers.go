@@ -53,7 +53,7 @@ func (l *ContainerLister) ListContainers(ctx context.Context, cursor string, _ s
 		container := &driven.Container{
 			ID:   result.ID,
 			Type: result.Object, // "page" or "database"
-			Metadata: map[string]string{
+			Metadata: map[string]any{
 				"url":              result.URL,
 				"created_time":     result.CreatedTime.Format("2006-01-02"),
 				"last_edited_time": result.LastEditedTime.Format("2006-01-02"),

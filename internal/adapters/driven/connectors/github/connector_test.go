@@ -343,6 +343,58 @@ func TestConnector_FetchChanges_SkipsPRsInIssuesLoop(t *testing.T) {
 	}
 }
 
+// TestConnector_FetchChanges_PRTimestampDoesNotAdvanceIssueCursor —
+// the persisted cursor's LastModified is reused as `since` on the next
+// ListIssues call. If a PR's UpdatedAt (which is typically newer than
+// any issue's, since PRs churn faster) bumps that watermark, real
+// issues older than the freshest PR drop out of the next sync's window.
+// /pulls is fetched in full each tick (no `since` filter), so it has no
+// business advancing the issue cursor.
+func TestConnector_FetchChanges_PRTimestampDoesNotAdvanceIssueCursor(t *testing.T) {
+	issueUpdatedAt := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	prUpdatedAt := time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC) // newer than the issue
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/issues"):
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]*Issue{
+				{ID: 1, Number: 5, Title: "real issue", State: "open", UpdatedAt: issueUpdatedAt},
+			})
+		case strings.Contains(r.URL.Path, "/pulls"):
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]*PullRequest{
+				{
+					ID: 2, Number: 7, Title: "newer PR", State: "open",
+					Head:      &PRBranch{Ref: "feature"},
+					Base:      &PRBranch{Ref: "main"},
+					UpdatedAt: prUpdatedAt,
+				},
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = ts.URL
+	cfg.IncludeIssues = true
+	cfg.IncludePRs = true
+	cfg.IncludeFiles = false
+	c := NewConnector(&stubTokenProvider{}, "owner", "repo", cfg)
+
+	_, cursor, err := c.FetchChanges(context.Background(), nil, "2026-01-01T00:00:00Z")
+	if err != nil {
+		t.Fatalf("FetchChanges: %v", err)
+	}
+
+	got := parseCursor(cursor)
+	if !got.LastModified.Equal(issueUpdatedAt) {
+		t.Errorf("LastModified = %s, want %s (issue's UpdatedAt; PRs must not advance the issue cursor)",
+			got.LastModified.Format(time.RFC3339), issueUpdatedAt.Format(time.RFC3339))
+	}
+}
+
 func TestComputeContentHash(t *testing.T) {
 	// Hash should be deterministic
 	hash1 := computeContentHash("hello world")
@@ -708,10 +760,12 @@ func TestInventory_IssuesPaginatesAndFiltersPRs(t *testing.T) {
 		}
 		pageHits++
 		page := r.URL.Query().Get("page")
-		w.WriteHeader(http.StatusOK)
 		switch page {
 		case "1", "":
-			// Return 100 issues so the connector probes for page 2.
+			// Return 100 issues and advertise a next page via the Link
+			// header — the connector's pagination signal.
+			w.Header().Set("Link", `<`+r.URL.String()+`&page=2>; rel="next"`)
+			w.WriteHeader(http.StatusOK)
 			items := make([]*Issue, 100)
 			pr := json.RawMessage(`{"url":"x"}`)
 			for i := 0; i < 100; i++ {
@@ -723,9 +777,11 @@ func TestInventory_IssuesPaginatesAndFiltersPRs(t *testing.T) {
 			}
 			_ = json.NewEncoder(w).Encode(items)
 		case "2":
-			// One real issue + nothing else, so probing stops.
+			// Final page: one real issue + no Link rel="next", so probing stops.
+			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode([]*Issue{{Number: 200, State: "closed"}})
 		default:
+			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode([]*Issue{})
 		}
 	}))
@@ -767,12 +823,13 @@ func TestInventory_FailsOnAnyPageError(t *testing.T) {
 		}
 		pageHits++
 		if pageHits == 1 {
-			// First page succeeds with a full 100 items so the connector
-			// asks for page 2.
+			// First page succeeds with a full 100 items and a Link
+			// rel="next" header so the connector asks for page 2.
 			items := make([]*Issue, 100)
 			for i := 0; i < 100; i++ {
 				items[i] = &Issue{Number: i + 1, State: "open"}
 			}
+			w.Header().Set("Link", `<`+r.URL.String()+`&page=2>; rel="next"`)
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(items)
 			return
@@ -794,6 +851,58 @@ func TestInventory_FailsOnAnyPageError(t *testing.T) {
 	}
 	if ids != nil {
 		t.Errorf("partial inventory leaked: %d ids returned alongside error", len(ids))
+	}
+}
+
+// TestInventory_KeepsPagingWhenPageUnderHundred — regression for the
+// `len == 100` heuristic: a full page with Link rel="next" must drive
+// the next page request even if the *filtered* result is shorter.
+// Previously this case stopped pagination silently, dropping issues and
+// (worse, post-delete-detection) flagging them as upstream deletes.
+func TestInventory_KeepsPagingWhenPageUnderHundred(t *testing.T) {
+	pageHits := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/issues") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		pageHits++
+		page := r.URL.Query().Get("page")
+		switch page {
+		case "1", "":
+			// 50 items + Link rel="next": fewer than 100, but more pages exist.
+			w.Header().Set("Link", `<`+r.URL.String()+`&page=2>; rel="next"`)
+			w.WriteHeader(http.StatusOK)
+			items := make([]*Issue, 50)
+			for i := 0; i < 50; i++ {
+				items[i] = &Issue{Number: i + 1, State: "open"}
+			}
+			_ = json.NewEncoder(w).Encode(items)
+		case "2":
+			// No Link header → end of pagination.
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]*Issue{{Number: 100, State: "open"}})
+		default:
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]*Issue{})
+		}
+	}))
+	defer ts.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = ts.URL
+	cfg.IncludeIssues = true
+	c := NewConnector(&stubTokenProvider{}, "owner", "repo", cfg)
+
+	ids, err := c.Inventory(context.Background(), nil, "issue-")
+	if err != nil {
+		t.Fatalf("Inventory: %v", err)
+	}
+	if pageHits != 2 {
+		t.Errorf("expected 2 page requests, got %d", pageHits)
+	}
+	if len(ids) != 51 {
+		t.Errorf("want 51 inventory IDs, got %d", len(ids))
 	}
 }
 
