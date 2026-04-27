@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/textfilter"
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
 	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 	pipelineport "github.com/sercha-oss/sercha-core/internal/core/ports/driven/pipeline"
@@ -89,13 +90,13 @@ func (s *ChunkerStage) Process(ctx context.Context, input any) (any, error) {
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "expected *pipeline.IndexingInput"}
 	}
 
-	chunks := s.chunkText(indexInput.DocumentID, indexInput.SourceID, indexInput.Content)
+	chunks := s.chunkText(indexInput.DocumentID, indexInput.SourceID, indexInput.MimeType, indexInput.Content)
 
 	return chunks, nil
 }
 
 // chunkText splits text into overlapping chunks.
-func (s *ChunkerStage) chunkText(documentID, sourceID, text string) []*pipeline.Chunk {
+func (s *ChunkerStage) chunkText(documentID, sourceID, mimeType, text string) []*pipeline.Chunk {
 	if len(text) == 0 {
 		return nil
 	}
@@ -122,7 +123,7 @@ func (s *ChunkerStage) chunkText(documentID, sourceID, text string) []*pipeline.
 		}
 
 		chunkContent := strings.TrimSpace(text[offset:end])
-		if len(chunkContent) > 0 && isLikelyNonText(chunkContent) {
+		if len(chunkContent) > 0 && textfilter.IsLikelyNonTextWithMime(chunkContent, mimeType) {
 			slog.Debug("skipping non-text chunk",
 				"document_id", documentID,
 				"position", position,

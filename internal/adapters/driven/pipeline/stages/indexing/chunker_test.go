@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sercha-oss/sercha-core/internal/adapters/driven/pipeline/stages/textfilter"
 	"github.com/sercha-oss/sercha-core/internal/core/domain/pipeline"
 )
 
@@ -148,7 +149,7 @@ func TestChunkerStage_FiltersNonTextChunks(t *testing.T) {
 
 	// All returned chunks should be text content, not base64
 	for i, chunk := range chunks {
-		if isLikelyNonText(chunk.Content) {
+		if textfilter.IsLikelyNonText(chunk.Content) {
 			t.Errorf("chunk %d should have been filtered (non-text content): %q", i, chunk.Content[:min(60, len(chunk.Content))])
 		}
 	}
@@ -243,7 +244,7 @@ func TestChunkerStage_NoInfiniteLoopOnMixedContent(t *testing.T) {
 			t.Error("expected at least one chunk from the normal text portions")
 		}
 		for i, chunk := range chunks {
-			if isLikelyNonText(chunk.Content) {
+			if textfilter.IsLikelyNonText(chunk.Content) {
 				t.Errorf("chunk %d contains non-text content that should have been filtered", i)
 			}
 		}
