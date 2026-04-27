@@ -14,6 +14,7 @@ import (
 
 const (
 	MultiRetrieverStageID          = "multi-retriever"
+	DefaultTopK                    = 100
 	DefaultRRFK                    = 60
 	DefaultVectorDistanceThreshold = 0.55 // Only include vector results closer than this
 )
@@ -291,6 +292,45 @@ func (s *MultiRetrieverStage) mergeWithRRF(results [][]*pipeline.Candidate, quer
 	}
 
 	return merged
+}
+
+// convertDocResultsToCandidates converts document-level BM25 results to pipeline candidates.
+func convertDocResultsToCandidates(results []driven.DocumentResult, source string) []*pipeline.Candidate {
+	candidates := make([]*pipeline.Candidate, len(results))
+	for i, r := range results {
+		candidates[i] = &pipeline.Candidate{
+			DocumentID: r.DocumentID,
+			ChunkID:    "", // Document-level result, no chunk
+			SourceID:   r.SourceID,
+			Content:    r.Content,
+			Score:      r.Score,
+			Source:     source,
+			Metadata:   map[string]any{"title": r.Title},
+		}
+	}
+	return candidates
+}
+
+// convertVectorResultsToCandidates converts chunk-level vector results to pipeline candidates.
+func convertVectorResultsToCandidates(results []driven.VectorSearchResult, source string) []*pipeline.Candidate {
+	candidates := make([]*pipeline.Candidate, len(results))
+	for i, r := range results {
+		// Convert distance to similarity score (1 - cosine_distance for cosine)
+		score := 1.0 - r.Distance
+		if score < 0 {
+			score = 0
+		}
+		candidates[i] = &pipeline.Candidate{
+			DocumentID: r.DocumentID,
+			ChunkID:    r.ChunkID,
+			SourceID:   "", // pgvector doesn't store source_id; ranker/presenter can resolve via DocumentID
+			Content:    r.Content,
+			Score:      score,
+			Source:     source,
+			Metadata:   make(map[string]any),
+		}
+	}
+	return candidates
 }
 
 // Interface assertions

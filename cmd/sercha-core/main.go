@@ -387,15 +387,6 @@ func main() {
 	if err := stageRegistry.Register(searchstages.NewQueryExpanderFactory()); err != nil {
 		log.Fatalf("Failed to register query-expander stage: %v", err)
 	}
-	if err := stageRegistry.Register(searchstages.NewBM25RetrieverFactory()); err != nil {
-		log.Fatalf("Failed to register bm25-retriever stage: %v", err)
-	}
-	if err := stageRegistry.Register(searchstages.NewVectorRetrieverFactory()); err != nil {
-		log.Fatalf("Failed to register vector-retriever stage: %v", err)
-	}
-	if err := stageRegistry.Register(searchstages.NewHybridRetrieverFactory()); err != nil {
-		log.Fatalf("Failed to register hybrid-retriever stage: %v", err)
-	}
 	if err := stageRegistry.Register(searchstages.NewMultiRetrieverFactory()); err != nil {
 		log.Fatalf("Failed to register multi-retriever stage: %v", err)
 	}

@@ -47,11 +47,6 @@ func (e *SearchExecutor) Execute(
 		return nil, fmt.Errorf("pipeline not found: %s", sctx.PipelineID)
 	}
 
-	// Apply preference-based stage filtering
-	if sctx.Preferences != nil {
-		def = e.applyPreferences(def, sctx.Preferences)
-	}
-
 	// Collect required capabilities from all stages
 	requiredCaps := e.collectRequiredCapabilities(def)
 
@@ -146,56 +141,6 @@ func (e *SearchExecutor) collectRequiredCapabilities(def pipeline.PipelineDefini
 		result = append(result, req)
 	}
 	return result
-}
-
-// applyPreferences filters pipeline stages based on user preferences.
-// Exactly one retriever is enabled based on the BM25/Vector flags:
-//   - Both enabled  → hybrid-retriever (BM25 + vector with RRF fusion)
-//   - BM25 only     → bm25-retriever
-//   - Vector only   → vector-retriever
-//   - Neither       → bm25-retriever (fallback)
-func (e *SearchExecutor) applyPreferences(def pipeline.PipelineDefinition, prefs *pipeline.StagePreferences) pipeline.PipelineDefinition {
-	// Clone stages slice
-	stages := make([]pipeline.StageConfig, len(def.Stages))
-	copy(stages, def.Stages)
-
-	// Determine which retriever to use
-	useBM25 := prefs.BM25SearchEnabled
-	useVector := prefs.VectorSearchEnabled
-
-	for i := range stages {
-		switch stages[i].StageID {
-		case "bm25-retriever":
-			// BM25-only: enabled when BM25 is on and vector is off
-			stages[i].Enabled = useBM25 && !useVector
-		case "vector-retriever":
-			// Vector-only: enabled when vector is on and BM25 is off
-			stages[i].Enabled = useVector && !useBM25
-		case "hybrid-retriever":
-			// Hybrid: enabled when both are on
-			stages[i].Enabled = useBM25 && useVector
-		}
-	}
-
-	// Fallback: if no retriever ended up enabled, enable BM25
-	hasRetriever := false
-	for _, s := range stages {
-		if (s.StageID == "bm25-retriever" || s.StageID == "vector-retriever" || s.StageID == "hybrid-retriever") && s.Enabled {
-			hasRetriever = true
-			break
-		}
-	}
-	if !hasRetriever {
-		for i := range stages {
-			if stages[i].StageID == "bm25-retriever" {
-				stages[i].Enabled = true
-				break
-			}
-		}
-	}
-
-	def.Stages = stages
-	return def
 }
 
 // Ensure SearchExecutor implements the interface.
