@@ -51,6 +51,48 @@ func (m *mockSearchExecutor) Execute(ctx context.Context, sctx *pipeline.SearchC
 	}, nil
 }
 
+// TestSearchService_PipelineID_RoutingHonoursOptsValue verifies that
+// callers can route to a custom registered pipeline by setting
+// SearchOptions.PipelineID. Empty falls back to "default-search".
+func TestSearchService_PipelineID_RoutingHonoursOptsValue(t *testing.T) {
+	cases := []struct {
+		name         string
+		optsID       string
+		wantPipeline string
+	}{
+		{"empty falls back to default", "", "default-search"},
+		{"custom id is honoured", "my-custom-pipeline", "my-custom-pipeline"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			searchEngine := mocks.NewMockSearchEngine()
+			documentStore := mocks.NewMockDocumentStore()
+			runtimeServices := createTestServices(mocks.NewMockEmbeddingService())
+
+			var capturedPipelineID string
+			executor := &mockSearchExecutor{
+				executeFn: func(ctx context.Context, sctx *pipeline.SearchContext, input *pipeline.SearchInput) (*pipeline.SearchOutput, error) {
+					capturedPipelineID = sctx.PipelineID
+					return &pipeline.SearchOutput{}, nil
+				},
+			}
+			svc := NewSearchService(searchEngine, documentStore, runtimeServices, executor, nil, nil, "default")
+
+			_, err := svc.Search(context.Background(), "q", domain.SearchOptions{
+				Limit:      10,
+				PipelineID: tc.optsID,
+			})
+			if err != nil {
+				t.Fatalf("Search: %v", err)
+			}
+			if capturedPipelineID != tc.wantPipeline {
+				t.Errorf("pipeline = %q, want %q", capturedPipelineID, tc.wantPipeline)
+			}
+		})
+	}
+}
+
 // TestSearchService_WithSearchExecutor tests that SearchService uses pipeline executor when provided
 func TestSearchService_WithSearchExecutor(t *testing.T) {
 	searchEngine := mocks.NewMockSearchEngine()
