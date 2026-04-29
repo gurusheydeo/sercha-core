@@ -295,11 +295,22 @@ func (s *MultiRetrieverStage) runSearch(ctx context.Context, q *pipeline.ParsedQ
 			}
 		}
 
-		vectorCands := convertVectorResultsToCandidates(filteredResults, "vector")
+		vectorChunkCands := convertVectorResultsToCandidates(filteredResults, "vector")
+
+		// Aggregate chunk-level vector candidates to doc-level (best chunk
+		// per document). pgvector retrieves at chunk granularity, but
+		// downstream BM25 candidates are doc-level — leaving them at chunk
+		// granularity means the variant-merger and ranker double-count
+		// vector contributions for any doc that has multiple matching
+		// chunks. Aggregating here makes BM25 and vector compete at the
+		// same unit of retrieval.
+		vectorCands := bestChunkPerDoc(vectorChunkCands)
+
 		slog.Info("search.vector returned candidates",
 			"phase", "retrieve_vector",
 			"raw_count", len(vectorResults),
 			"after_threshold_count", len(filteredResults),
+			"after_doc_aggregate_count", len(vectorCands),
 			"distance_threshold", s.vectorDistanceThreshold,
 			"top3", topNSummary(vectorCands, 3),
 		)
@@ -335,6 +346,46 @@ func fmtSummary(c *pipeline.Candidate) string {
 // formatScore truncates a score to 4 significant digits for log readability.
 func formatScore(f float64) string {
 	return strconv.FormatFloat(f, 'g', 4, 64)
+}
+
+// bestChunkPerDoc collapses chunk-level vector candidates to one
+// candidate per DocumentID, keeping the highest-scoring chunk. The
+// returned slice preserves descending-score order, so downstream
+// rank-based fusions see the same ordering they did before
+// aggregation.
+//
+// Vector retrieval returns chunks because pgvector indexes chunk
+// embeddings; BM25 retrieves at document level. Aggregating here puts
+// both retrievers on the same footing for the variant-merger and the
+// final ranker — without it, a doc with five matching chunks
+// contributes five RRF terms while a doc with one matching chunk
+// contributes one, even though both are "this document was a good
+// match".
+func bestChunkPerDoc(chunks []*pipeline.Candidate) []*pipeline.Candidate {
+	if len(chunks) == 0 {
+		return chunks
+	}
+	bestByDoc := make(map[string]*pipeline.Candidate, len(chunks))
+	order := make([]string, 0, len(chunks))
+	for _, c := range chunks {
+		existing, ok := bestByDoc[c.DocumentID]
+		if !ok {
+			bestByDoc[c.DocumentID] = c
+			order = append(order, c.DocumentID)
+			continue
+		}
+		if c.Score > existing.Score {
+			bestByDoc[c.DocumentID] = c
+		}
+	}
+	out := make([]*pipeline.Candidate, 0, len(bestByDoc))
+	for _, id := range order {
+		out = append(out, bestByDoc[id])
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Score > out[j].Score
+	})
+	return out
 }
 
 // mergeWithRRF merges results from multiple query variants using weighted Reciprocal Rank Fusion.
