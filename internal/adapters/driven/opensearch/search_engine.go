@@ -70,13 +70,16 @@ func (s *SearchEngine) IndexDocument(ctx context.Context, doc *domain.DocumentCo
 // Field weighting:
 //
 //	title^3            primary signal — the document's name
-//	path.basename^3    filename-only signal (e.g. `auth.go`); same weight as
-//	                   title since for code/file content the basename is
-//	                   effectively the title
-//	path.text^2        full-path tokens (`docs/k8s/deploy` matches a query
-//	                   for "deploy" anywhere in the tree)
 //	content            body text, default weight
 //	metadata^1.5       connector-supplied attributes (author, labels, etc.)
+//
+// path.text and path.basename were dropped from the must clause: three of
+// four connectors (OneDrive, Notion, GitHub) populate Document.Path with a
+// provider URL, so the path subfields tokenise to junk like CIDs and item
+// IDs and pollute scoring with high weights. The keyword path field still
+// supports filtering. A future change should split URL from filesystem
+// path on the domain type so we can re-enable filename matching where it
+// genuinely helps (LocalFS).
 //
 // minimum_should_match: 75% requires the bulk of a multi-term query to
 // match. For 1-2 word queries the percent rounds down to "all required";
@@ -94,8 +97,6 @@ func (s *SearchEngine) SearchDocuments(ctx context.Context, query string, opts d
 	// should require the phrase to appear, not just contribute score.
 	matchFields := []string{
 		"title^3",
-		"path.basename^3",
-		"path.text^2",
 		"content",
 		"metadata^1.5",
 	}
@@ -195,7 +196,7 @@ func (s *SearchEngine) buildBoolEnvelope(mustClauses []any, opts domain.SearchOp
 			shouldClauses = append(shouldClauses, map[string]any{
 				"multi_match": map[string]any{
 					"query":  term,
-					"fields": []string{"title", "content", "path.text", "path.basename", "metadata"},
+					"fields": []string{"title", "content", "metadata"},
 					"boost":  boost,
 				},
 			})
