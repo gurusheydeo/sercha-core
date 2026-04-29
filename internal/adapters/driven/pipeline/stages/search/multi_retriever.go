@@ -194,8 +194,19 @@ func (s *MultiRetrieverStage) runSearch(ctx context.Context, q *pipeline.ParsedQ
 	// q.Original would leak the literal `"` characters into the analyser,
 	// which strips them as punctuation and silently degrades the phrase to
 	// two unrelated tokens.
+	//
+	// When the user submits only a quoted phrase the parser leaves Terms
+	// empty. The OpenSearch adapter's must clause is a multi_match against
+	// queryStr, and an empty queryStr makes the must clause match nothing —
+	// the phrase clauses alone in opts.Phrases aren't enough because they
+	// also live in must. Fall back to joined phrase content so the must
+	// clause has tokens to score on; the match_phrase clauses still apply
+	// the strict-contiguity check on top.
 	queryStr := strings.Join(q.Terms, " ")
-	if queryStr == "" && len(q.Phrases) == 0 {
+	if queryStr == "" {
+		queryStr = strings.Join(q.Phrases, " ")
+	}
+	if queryStr == "" {
 		queryStr = q.Original
 	}
 
