@@ -105,7 +105,11 @@ func (s *SearchEngine) SearchDocuments(ctx context.Context, query string, opts d
 				"query":                query,
 				"fields":               matchFields,
 				"type":                 "most_fields",
-				"fuzziness":            "AUTO", // 0 edits ≤2 chars, 1 edit 3-5, 2 edits 6+
+				// AUTO:7,15 means 0 edits below 7 chars, 1 edit 7-14, 2 edits 15+.
+				// Default AUTO permits 1 edit on 3-5 char tokens, which lets
+				// year tokens fuzzy-match adjacent years (`2021` ≈ `2023`) and
+				// pollutes year-specific queries.
+				"fuzziness":            "AUTO:7,15",
 				"minimum_should_match": "75%",
 			},
 		},

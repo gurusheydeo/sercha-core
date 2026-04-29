@@ -1496,8 +1496,8 @@ func TestSearchEngine_SearchDocuments_QueryStructure(t *testing.T) {
 				if mm["query"] != "merge sort" {
 					t.Errorf("query = %v, want %q", mm["query"], "merge sort")
 				}
-				if mm["fuzziness"] != "AUTO" {
-					t.Errorf("fuzziness = %v, want AUTO", mm["fuzziness"])
+				if mm["fuzziness"] != "AUTO:7,15" {
+					t.Errorf("fuzziness = %v, want AUTO:7,15", mm["fuzziness"])
 				}
 				if mm["type"] != "most_fields" {
 					t.Errorf("type = %v, want most_fields", mm["type"])
