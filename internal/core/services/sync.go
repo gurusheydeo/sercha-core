@@ -509,10 +509,26 @@ func (o *SyncOrchestrator) syncContainer(
 		default:
 		}
 
+		fetchStart := time.Now()
 		changes, nextCursor, err := connector.FetchChanges(ctx, source, cursor)
+		fetchDuration := time.Since(fetchStart)
 		if err != nil {
+			o.logger.Warn("connector fetch_changes failed",
+				"phase", "fetch_changes",
+				"source_id", source.ID,
+				"container_id", containerID,
+				"duration_ms", fetchDuration.Milliseconds(),
+				"error", err,
+			)
 			return stats, lastCursor, fmt.Errorf("failed to fetch changes: %w", err)
 		}
+		o.logger.Info("connector fetch_changes completed",
+			"phase", "fetch_changes",
+			"source_id", source.ID,
+			"container_id", containerID,
+			"changes", len(changes),
+			"duration_ms", fetchDuration.Milliseconds(),
+		)
 
 		if len(changes) == 0 {
 			break
@@ -562,14 +578,28 @@ func (o *SyncOrchestrator) syncContainer(
 			// Mark as processed before processing to avoid duplicates
 			processedExternalIDs[change.ExternalID] = true
 
-			if err := o.processChange(ctx, source, change, stats); err != nil {
+			procStart := time.Now()
+			err := o.processChange(ctx, source, change, stats)
+			procDuration := time.Since(procStart)
+			if err != nil {
 				o.logger.Warn("failed to process change",
+					"phase", "process_change",
 					"source_id", source.ID,
 					"container_id", containerID,
 					"external_id", change.ExternalID,
+					"duration_ms", procDuration.Milliseconds(),
 					"error", err,
 				)
 				stats.Errors++
+			} else {
+				o.logger.Debug("processed change",
+					"phase", "process_change",
+					"source_id", source.ID,
+					"container_id", containerID,
+					"external_id", change.ExternalID,
+					"change_type", string(change.Type),
+					"duration_ms", procDuration.Milliseconds(),
+				)
 			}
 		}
 
@@ -920,11 +950,23 @@ func (o *SyncOrchestrator) processWithPipeline(
 	// Observer fires only after successful persistence. Failures are logged and ignored —
 	// observer health must not affect ingest correctness.
 	if o.documentIngestObserver != nil {
-		if err := o.documentIngestObserver.OnDocumentIngested(ctx, source, doc); err != nil {
+		obsStart := time.Now()
+		err := o.documentIngestObserver.OnDocumentIngested(ctx, source, doc)
+		obsDuration := time.Since(obsStart)
+		if err != nil {
 			o.logger.Warn("document ingest observer failed",
+				"phase", "ingest_observer",
 				"document_id", doc.ID,
 				"source_id", source.ID,
+				"duration_ms", obsDuration.Milliseconds(),
 				"error", err,
+			)
+		} else {
+			o.logger.Debug("document ingest observer completed",
+				"phase", "ingest_observer",
+				"document_id", doc.ID,
+				"source_id", source.ID,
+				"duration_ms", obsDuration.Milliseconds(),
 			)
 		}
 	}
