@@ -431,7 +431,19 @@ func (s *MultiRetrieverStage) mergeWithRRF(results [][]*pipeline.Candidate, quer
 			continue
 		}
 
-		for rank, candidate := range variantCandidates {
+		// Rank each source independently within this variant.
+		// runSearch returns BM25 results followed by vector results
+		// concatenated; using the position in the combined slice as
+		// the RRF rank starves the second source — its rank starts
+		// where the first source's count ends, putting every vector
+		// candidate at rank >= 100 even when it's the top match in
+		// its own retriever. Per-source rank assignment puts both
+		// retrievers on the same rank scale.
+		sourceRank := make(map[string]int)
+		for _, candidate := range variantCandidates {
+			rank := sourceRank[candidate.Source]
+			sourceRank[candidate.Source] = rank + 1
+
 			key := rrfKey{docID: candidate.DocumentID, source: candidate.Source}
 
 			entry, exists := docScores[key]
