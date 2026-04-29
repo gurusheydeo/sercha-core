@@ -1105,10 +1105,12 @@ func TestSearchEngine_SearchDocuments_WithBoostTerms(t *testing.T) {
 							}
 
 							fields, ok := multiMatch["fields"].([]any)
-							// Boost-term should clause now searches across
-							// title, content, path.text, path.basename, metadata.
-							if !ok || len(fields) != 5 {
-								t.Errorf("Expected 5 fields in boost-term multi_match, got %v", fields)
+							// Boost-term should clause searches title, content,
+							// metadata. path subfields were dropped because
+							// non-LocalFS connectors put URLs in Document.Path,
+							// which tokenises to junk under path.basename/path.text.
+							if !ok || len(fields) != 3 {
+								t.Errorf("Expected 3 fields in boost-term multi_match, got %v", fields)
 							}
 						}
 						if boostMatches != 2 {
@@ -1373,11 +1375,10 @@ func TestSearchEngine_BoostTermsQueryStructure(t *testing.T) {
 					boost := multiMatch["boost"].(float64)
 					foundTerms[term] = boost
 
-					// Boost-term should clause searches title, content, path.text,
-					// path.basename, metadata — five fields.
+					// Boost-term should clause searches title, content, metadata.
 					fields := multiMatch["fields"].([]any)
-					if len(fields) != 5 {
-						t.Errorf("Expected 5 fields, got %d (%v)", len(fields), fields)
+					if len(fields) != 3 {
+						t.Errorf("Expected 3 fields, got %d (%v)", len(fields), fields)
 					}
 				}
 
@@ -1496,8 +1497,8 @@ func TestSearchEngine_SearchDocuments_QueryStructure(t *testing.T) {
 				if mm["query"] != "merge sort" {
 					t.Errorf("query = %v, want %q", mm["query"], "merge sort")
 				}
-				if mm["fuzziness"] != "AUTO" {
-					t.Errorf("fuzziness = %v, want AUTO", mm["fuzziness"])
+				if mm["fuzziness"] != "AUTO:7,15" {
+					t.Errorf("fuzziness = %v, want AUTO:7,15", mm["fuzziness"])
 				}
 				if mm["type"] != "most_fields" {
 					t.Errorf("type = %v, want most_fields", mm["type"])
@@ -1520,10 +1521,9 @@ func TestSearchEngine_SearchDocuments_QueryStructure(t *testing.T) {
 					t.Errorf("phrase clause type = %v, want phrase", phrase["type"])
 				}
 				// Phrase clauses share the same field set as the loose
-				// fuzzy match: title^3, path.basename^3, path.text^2,
-				// content, metadata^1.5.
+				// fuzzy match: title^3, content, metadata^1.5.
 				fields := phrase["fields"].([]any)
-				wantFields := []any{"title^3", "path.basename^3", "path.text^2", "content", "metadata^1.5"}
+				wantFields := []any{"title^3", "content", "metadata^1.5"}
 				if len(fields) != len(wantFields) {
 					t.Errorf("phrase fields len = %d, want %d (%v)", len(fields), len(wantFields), fields)
 				}
