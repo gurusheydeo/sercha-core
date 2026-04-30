@@ -42,7 +42,7 @@ func (s *stubTokenProvider) IsValid(ctx context.Context) bool {
 }
 
 func TestConnector_Type(t *testing.T) {
-	connector := NewConnector(&stubTokenProvider{}, "", nil)
+	connector := NewConnector(&stubTokenProvider{}, "", nil, nil)
 
 	if connector.Type() != domain.ProviderTypeOneDrive {
 		t.Errorf("Type() = %v, want %v", connector.Type(), domain.ProviderTypeOneDrive)
@@ -50,7 +50,7 @@ func TestConnector_Type(t *testing.T) {
 }
 
 func TestConnector_ValidateConfig(t *testing.T) {
-	connector := NewConnector(&stubTokenProvider{}, "", nil)
+	connector := NewConnector(&stubTokenProvider{}, "", nil, nil)
 
 	// OneDrive has no special config validation
 	err := connector.ValidateConfig(domain.SourceConfig{})
@@ -97,14 +97,14 @@ func TestConnector_FetchChanges_InitialSync(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	// Override client to use test server
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{
 		ID:   "source-1",
@@ -126,7 +126,7 @@ func TestConnector_FetchChanges_InitialSync(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	// Override GetDelta to use first test server
 	// We'll need to create a mock that handles both delta and content
@@ -165,7 +165,7 @@ func TestConnector_FetchChanges_InitialSync(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	changes, cursor, err := connector.FetchChanges(context.Background(), source, "")
 	if err != nil {
@@ -230,13 +230,13 @@ func TestConnector_FetchChanges_DeletedFile(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -283,13 +283,13 @@ func TestConnector_FetchChanges_SkipFolders(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -330,13 +330,13 @@ func TestConnector_FetchChanges_SkipLargeFiles(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024, // 100 MB max
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -390,13 +390,13 @@ func TestConnector_FetchChanges_WithContainer(t *testing.T) {
 	}
 
 	// Container format: "folder-123:MyFolder"
-	connector := NewConnector(&stubTokenProvider{}, "folder-123:MyFolder", config)
+	connector := NewConnector(&stubTokenProvider{}, "folder-123:MyFolder", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	// Mock content endpoint
 	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -439,7 +439,7 @@ func TestConnector_FetchChanges_WithContainer(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -487,13 +487,13 @@ func TestConnector_FetchDocument(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -516,7 +516,7 @@ func TestConnector_FetchDocument(t *testing.T) {
 }
 
 func TestConnector_FetchDocument_InvalidExternalID(t *testing.T) {
-	connector := NewConnector(&stubTokenProvider{}, "", nil)
+	connector := NewConnector(&stubTokenProvider{}, "", nil, nil)
 	source := &domain.Source{ID: "source-1"}
 
 	_, _, err := connector.FetchDocument(context.Background(), source, "invalid-id")
@@ -549,13 +549,13 @@ func TestConnector_FetchDocument_NotAFile(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -591,13 +591,13 @@ func TestConnector_TestConnection(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -626,13 +626,13 @@ func TestConnector_TestConnection_Error(t *testing.T) {
 		MaxFileSize:    100 * 1024 * 1024,
 	}
 
-	connector := NewConnector(&stubTokenProvider{}, "", config)
+	connector := NewConnector(&stubTokenProvider{}, "", config, nil)
 	connector.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	source := &domain.Source{ID: "source-1"}
 
@@ -677,7 +677,7 @@ func TestConnector_ContainerIDParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			connector := NewConnector(&stubTokenProvider{}, tt.containerID, nil)
+			connector := NewConnector(&stubTokenProvider{}, tt.containerID, nil, nil)
 
 			if connector.containerID != tt.expectedID {
 				t.Errorf("containerID = %q, want %q", connector.containerID, tt.expectedID)
@@ -768,13 +768,13 @@ func TestFetchChanges_DrainsMultipleDeltaPages(t *testing.T) {
 		MaxRetries:     3,
 		MaxFileSize:    100 * 1024 * 1024,
 	}
-	c := NewConnector(&stubTokenProvider{}, "", cfg)
+	c := NewConnector(&stubTokenProvider{}, "", cfg, nil)
 	c.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        server.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	changes, cursor, err := c.FetchChanges(context.Background(), &domain.Source{ID: "src"}, "")
 	if err != nil {
@@ -846,13 +846,13 @@ func TestFetchChanges_RecoversFromResyncRequired(t *testing.T) {
 		MaxRetries:     3,
 		MaxFileSize:    100 * 1024 * 1024,
 	}
-	c := NewConnector(&stubTokenProvider{}, "", cfg)
+	c := NewConnector(&stubTokenProvider{}, "", cfg, nil)
 	c.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	// Pass a "stale" cursor that simulates a token Graph will reject.
 	// The cursor needs to be a URL the client will hit, since GetDelta
@@ -903,13 +903,13 @@ func TestFetchChanges_DoesNotRetryRepeatedResyncRequired(t *testing.T) {
 		MaxRetries:     3,
 		MaxFileSize:    100 * 1024 * 1024,
 	}
-	c := NewConnector(&stubTokenProvider{}, "", cfg)
+	c := NewConnector(&stubTokenProvider{}, "", cfg, nil)
 	c.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	_, _, err := c.FetchChanges(context.Background(), &domain.Source{ID: "src"}, "")
 	if err == nil {
@@ -945,13 +945,13 @@ func TestFetchChanges_StopsWhenNeitherLinkPresent(t *testing.T) {
 		MaxRetries:     3,
 		MaxFileSize:    100 * 1024 * 1024,
 	}
-	c := NewConnector(&stubTokenProvider{}, "", cfg)
+	c := NewConnector(&stubTokenProvider{}, "", cfg, nil)
 	c.client = microsoft.NewClient(&stubTokenProvider{}, &microsoft.ClientConfig{
 		BaseURL:        ts.URL + "/v1.0",
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	if _, _, err := c.FetchChanges(context.Background(), &domain.Source{ID: "src"}, ""); err != nil {
 		t.Fatalf("FetchChanges: %v", err)

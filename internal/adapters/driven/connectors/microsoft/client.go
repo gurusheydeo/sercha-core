@@ -58,16 +58,27 @@ func DefaultClientConfig() *ClientConfig {
 }
 
 // NewClient creates a new Microsoft Graph API client.
-func NewClient(tokenProvider driven.TokenProvider, config *ClientConfig) *Client {
+//
+// transport may be nil, in which case http.DefaultTransport is used. Production
+// callers should pass connectors.SharedTransport("microsoft") so that TLS
+// sessions and keepalive connections are pooled across all Microsoft connector
+// instances in the process rather than each instance opening fresh connections.
+//
+// The *http.Client envelope (which carries the per-source timeout) is always
+// allocated per-call; only the underlying transport (connection pool) is shared.
+func NewClient(tokenProvider driven.TokenProvider, config *ClientConfig, transport http.RoundTripper) *Client {
 	if config == nil {
 		config = DefaultClientConfig()
+	}
+	if transport == nil {
+		transport = http.DefaultTransport
 	}
 
 	limiter := rate.NewLimiter(rate.Limit(config.RateLimitRPS), 1)
 
 	return &Client{
 		tokenProvider: tokenProvider,
-		httpClient:    &http.Client{Timeout: config.RequestTimeout},
+		httpClient:    &http.Client{Timeout: config.RequestTimeout, Transport: transport},
 		baseURL:       strings.TrimSuffix(config.BaseURL, "/"),
 		rateLimiter:   limiter,
 		maxRetries:    config.MaxRetries,

@@ -70,7 +70,7 @@ func TestContainerLister_ListContainers_Root(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	containers, cursor, err := lister.ListContainers(context.Background(), "", "")
 	if err != nil {
@@ -170,7 +170,7 @@ func TestContainerLister_ListContainers_WithParentID(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	// Use parentID format "id:name" - should extract the ID part
 	containers, _, err := lister.ListContainers(context.Background(), "", "folder-123:Documents")
@@ -247,7 +247,7 @@ func TestContainerLister_ListContainers_ParentIDParsing(t *testing.T) {
 				RateLimitRPS:   100.0,
 				RequestTimeout: 30 * time.Second,
 				MaxRetries:     3,
-			})
+			}, nil)
 
 			_, _, err := lister.ListContainers(context.Background(), "", tt.parentID)
 			if err != nil {
@@ -306,7 +306,7 @@ func TestContainerLister_ListContainers_Pagination(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	// First page
 	containers, cursor, err := lister.ListContainers(context.Background(), "", "")
@@ -392,7 +392,7 @@ func TestContainerLister_ListContainers_OnlyFolders(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	containers, _, err := lister.ListContainers(context.Background(), "", "")
 	if err != nil {
@@ -436,7 +436,7 @@ func TestContainerLister_ListContainers_Error(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	_, _, err := lister.ListContainers(context.Background(), "", "")
 	if err == nil {
@@ -481,7 +481,7 @@ func TestContainerLister_ContainerIDFormat(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	containers, _, err := lister.ListContainers(context.Background(), "", "")
 	if err != nil {
@@ -536,7 +536,7 @@ func TestContainerLister_MetadataFormatting(t *testing.T) {
 		RateLimitRPS:   100.0,
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
-	})
+	}, nil)
 
 	containers, _, err := lister.ListContainers(context.Background(), "", "")
 	if err != nil {

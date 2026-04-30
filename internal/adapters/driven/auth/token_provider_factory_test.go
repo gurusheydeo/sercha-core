@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -498,4 +500,199 @@ func TestOAuthTokenProvider_Refresh(t *testing.T) {
 	if updatedConn.Secrets.AccessToken != "new_token" {
 		t.Errorf("expected connection to be updated with new token")
 	}
+}
+
+// TestCreate_ReturnsSameInstanceForSameConnectionID verifies that Create
+// returns the exact same *TokenProvider instance for the same connectionID.
+func TestCreate_ReturnsSameInstanceForSameConnectionID(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	conn := &domain.Connection{
+		ID:           "c1",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
+		AuthMethod:   domain.AuthMethodAPIKey,
+		Secrets: &domain.ConnectionSecrets{
+			APIKey: "test-key",
+		},
+	}
+	_ = connStore.Save(context.Background(), conn)
+
+	provider1, err := factory.Create(context.Background(), "c1")
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	provider2, err := factory.Create(context.Background(), "c1")
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	// Verify they're the exact same instance
+	if provider1 != provider2 {
+		t.Error("expected same provider instance for same connectionID")
+	}
+}
+
+// TestCreate_ConcurrentColdStart_OnlyOneSurvives verifies that concurrent
+// calls to Create for the same connectionID converge on a single instance.
+func TestCreate_ConcurrentColdStart_OnlyOneSurvives(t *testing.T) {
+	connStore := newMockConnectionStore()
+
+	// Pre-populate a valid connection
+	conn := &domain.Connection{
+		ID:           "c1",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
+		AuthMethod:   domain.AuthMethodAPIKey,
+		Secrets: &domain.ConnectionSecrets{
+			APIKey: "test-key",
+		},
+	}
+	_ = connStore.Save(context.Background(), conn)
+
+	// Create a factory
+	factory := NewTokenProviderFactory(connStore)
+
+	const goroutines = 16
+	results := make([]driven.TokenProvider, goroutines)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			<-start // Wait for all goroutines to be ready
+			p, err := factory.Create(context.Background(), "c1")
+			if err != nil {
+				t.Errorf("goroutine %d: Create() error = %v", idx, err)
+				return
+			}
+			results[idx] = p
+		}(i)
+	}
+
+	close(start) // Signal all goroutines to start simultaneously
+	wg.Wait()
+
+	// Verify all returned the same instance
+	for i := 1; i < goroutines; i++ {
+		if results[i] != results[0] {
+			t.Errorf("goroutine %d returned different instance than goroutine 0", i)
+		}
+	}
+}
+
+// TestCreate_DifferentConnectionIDs_ReturnDifferentInstances verifies that
+// different connectionIDs get different provider instances.
+func TestCreate_DifferentConnectionIDs_ReturnDifferentInstances(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	conn1 := &domain.Connection{
+		ID:           "c1",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
+		AuthMethod:   domain.AuthMethodAPIKey,
+		Secrets: &domain.ConnectionSecrets{
+			APIKey: "key1",
+		},
+	}
+	conn2 := &domain.Connection{
+		ID:           "c2",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
+		AuthMethod:   domain.AuthMethodAPIKey,
+		Secrets: &domain.ConnectionSecrets{
+			APIKey: "key2",
+		},
+	}
+
+	_ = connStore.Save(context.Background(), conn1)
+	_ = connStore.Save(context.Background(), conn2)
+
+	provider1, err := factory.Create(context.Background(), "c1")
+	if err != nil {
+		t.Fatalf("Create(c1) error = %v", err)
+	}
+
+	provider2, err := factory.Create(context.Background(), "c2")
+	if err != nil {
+		t.Fatalf("Create(c2) error = %v", err)
+	}
+
+	if provider1 == provider2 {
+		t.Error("expected different provider instances for different connectionIDs")
+	}
+}
+
+// TestRemoveProvider_EvictsAndForcesReload verifies that RemoveProvider
+// evicts a provider from the cache and forces a fresh load on next Create.
+func TestRemoveProvider_EvictsAndForcesReload(t *testing.T) {
+	var getCallCount int64
+
+	// Custom store that counts Get calls
+	connStore := &countingGetStore{
+		mockConnectionStore: newMockConnectionStore(),
+		getCallCount:        &getCallCount,
+	}
+
+	conn := &domain.Connection{
+		ID:           "c1",
+		Platform:     domain.PlatformLocalFS,
+		ProviderType: domain.ProviderTypeLocalFS,
+		AuthMethod:   domain.AuthMethodAPIKey,
+		Secrets: &domain.ConnectionSecrets{
+			APIKey: "test-key",
+		},
+	}
+	_ = connStore.Save(context.Background(), conn)
+
+	factory := NewTokenProviderFactory(connStore)
+
+	// First Create should call Get once
+	getCallCount = 0
+	_, err := factory.Create(context.Background(), "c1")
+	if err != nil {
+		t.Fatalf("first Create() error = %v", err)
+	}
+	if getCallCount != 1 {
+		t.Errorf("first Create: Get called %d times, want 1", getCallCount)
+	}
+
+	// Second Create should NOT call Get (cached)
+	getCallCount = 0
+	_, err = factory.Create(context.Background(), "c1")
+	if err != nil {
+		t.Fatalf("second Create() error = %v", err)
+	}
+	if getCallCount != 0 {
+		t.Errorf("second Create (cached): Get called %d times, want 0", getCallCount)
+	}
+
+	// Remove the provider
+	factory.RemoveProvider("c1")
+
+	// Third Create should call Get again
+	getCallCount = 0
+	_, err = factory.Create(context.Background(), "c1")
+	if err != nil {
+		t.Fatalf("third Create() after RemoveProvider error = %v", err)
+	}
+	if getCallCount != 1 {
+		t.Errorf("third Create (after remove): Get called %d times, want 1", getCallCount)
+	}
+}
+
+// countingGetStore wraps mockConnectionStore and counts Get calls
+type countingGetStore struct {
+	*mockConnectionStore
+	getCallCount *int64
+}
+
+func (c *countingGetStore) Get(ctx context.Context, id string) (*domain.Connection, error) {
+	atomic.AddInt64(c.getCallCount, 1)
+	return c.mockConnectionStore.Get(ctx, id)
 }

@@ -72,7 +72,7 @@ func TestClient_GetMe(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	user, err := client.GetMe(context.Background())
 	if err != nil {
@@ -128,7 +128,7 @@ func TestClient_GetDelta(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	delta, err := client.GetDelta(context.Background(), "")
 	if err != nil {
@@ -178,7 +178,7 @@ func TestClient_GetDelta_WithDeltaLink(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	deltaLink := ts.URL + "/v1.0/me/drive/root/delta?token=abc123"
 	_, err := client.GetDelta(context.Background(), deltaLink)
@@ -210,7 +210,7 @@ func TestClient_GetDelta_Pagination(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	delta, err := client.GetDelta(context.Background(), "")
 	if err != nil {
@@ -264,7 +264,7 @@ func TestClient_GetDriveItems(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	resp, err := client.GetDriveItems(context.Background(), "folder-123")
 	if err != nil {
@@ -312,7 +312,7 @@ func TestClient_GetDriveItem(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	item, err := client.GetDriveItem(context.Background(), "item-123")
 	if err != nil {
@@ -356,7 +356,7 @@ func TestClient_GetDriveItemContent(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	content, err := client.GetDriveItemContent(context.Background(), "item-123")
 	if err != nil {
@@ -386,7 +386,7 @@ func TestClient_GetDriveItemContent_Error(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetDriveItemContent(context.Background(), "nonexistent")
 	if err == nil {
@@ -421,7 +421,7 @@ func TestClient_GetNextPage(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	var result DeltaResponse
 	nextLink := ts.URL + "/v1.0/me/drive/root/delta?skipToken=page2"
@@ -453,7 +453,7 @@ func TestClient_RateLimiting(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	// Make 3 requests
 	for i := 0; i < 3; i++ {
@@ -507,7 +507,7 @@ func TestClient_RetryOnServerError(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetMe(context.Background())
 	if err != nil {
@@ -550,7 +550,7 @@ func TestClient_RetryOnRateLimit(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetMe(context.Background())
 	if err != nil {
@@ -580,7 +580,7 @@ func TestClient_ErrorResponse(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetMe(context.Background())
 	if err == nil {
@@ -666,6 +666,123 @@ func TestDriveItem_IsDeleted(t *testing.T) {
 	}
 }
 
+// TestNewClient_NilTransportFallsBackToDefault verifies that when nil is
+// passed for the transport parameter, the client falls back to
+// http.DefaultTransport.
+func TestNewClient_NilTransportFallsBackToDefault(t *testing.T) {
+	tokenProvider := &stubTokenProvider{}
+	cfg := &ClientConfig{
+		BaseURL:        "https://graph.microsoft.com/v1.0",
+		RateLimitRPS:   10.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+	}
+
+	// Create client with nil transport
+	client := NewClient(tokenProvider, cfg, nil)
+
+	if client.httpClient.Transport == nil {
+		t.Error("expected httpClient.Transport to be non-nil")
+	}
+
+	// Should use http.DefaultTransport
+	if client.httpClient.Transport != http.DefaultTransport {
+		t.Error("expected httpClient.Transport to be http.DefaultTransport")
+	}
+}
+
+// TestNewClient_UsesInjectedTransport verifies that when a custom
+// http.RoundTripper is passed, the client uses it instead of the default.
+func TestNewClient_UsesInjectedTransport(t *testing.T) {
+	tokenProvider := &stubTokenProvider{}
+
+	// Create a stub transport to track calls
+	stubTransport := &stubRoundTripper{
+		onRoundTrip: func(req *http.Request) (*http.Response, error) {
+			// Return a minimal valid response
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       http.NoBody,
+			}, nil
+		},
+	}
+
+	cfg := &ClientConfig{
+		BaseURL:        "https://graph.example.com/v1.0",
+		RateLimitRPS:   10.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+	}
+
+	client := NewClient(tokenProvider, cfg, stubTransport)
+
+	// Verify the transport is used
+	if client.httpClient.Transport != stubTransport {
+		t.Error("expected httpClient.Transport to be the injected transport")
+	}
+
+	// Make a request through the client to verify the transport is invoked
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(User{
+			ID:          "user-123",
+			DisplayName: "Test User",
+		})
+	}))
+	defer ts.Close()
+
+	// Create a client with custom config pointing to test server
+	testCfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   10.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     3,
+	}
+
+	// Use a simple tracking transport
+	callTracker := &callTrackingTransport{
+		wrapped: http.DefaultTransport,
+	}
+	testClient := NewClient(tokenProvider, testCfg, callTracker)
+
+	// Make a request
+	_, err := testClient.GetMe(context.Background())
+	if err != nil {
+		t.Fatalf("GetMe() error = %v", err)
+	}
+
+	// Verify the tracking transport was invoked
+	if callTracker.callCount == 0 {
+		t.Error("expected injected transport to be called")
+	}
+}
+
+// stubRoundTripper is a test implementation of http.RoundTripper
+type stubRoundTripper struct {
+	onRoundTrip func(*http.Request) (*http.Response, error)
+}
+
+func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if s.onRoundTrip != nil {
+		return s.onRoundTrip(req)
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       http.NoBody,
+	}, nil
+}
+
+// callTrackingTransport wraps an http.RoundTripper and tracks calls
+type callTrackingTransport struct {
+	wrapped   http.RoundTripper
+	callCount int
+}
+
+func (c *callTrackingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	c.callCount++
+	return c.wrapped.RoundTrip(req)
+}
+
 // TestGetDelta_ResyncRequired_410WithCode — Microsoft Graph signals
 // "your stored delta token has aged out, restart the cycle" via HTTP
 // 410 Gone with a resyncRequired-flavour error code. The client must
@@ -689,7 +806,7 @@ func TestGetDelta_ResyncRequired_410WithCode(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetDelta(context.Background(), "stale-token")
 	if err == nil {
@@ -720,7 +837,7 @@ func TestGetDelta_ResyncRequired_410NoBody(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetDelta(context.Background(), "")
 	if err == nil {
@@ -749,7 +866,7 @@ func TestGetDelta_NonResyncErrorPassesThrough(t *testing.T) {
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     3,
 	}
-	client := NewClient(&stubTokenProvider{}, cfg)
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
 
 	_, err := client.GetDelta(context.Background(), "")
 	if err == nil {

@@ -31,7 +31,7 @@ func NewContainerLister(tokenProvider driven.TokenProvider, config *Config) *Con
 	}
 
 	return &ContainerLister{
-		client: microsoft.NewClient(tokenProvider, clientConfig),
+		client: microsoft.NewClient(tokenProvider, clientConfig, nil),
 	}
 }
 

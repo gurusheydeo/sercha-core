@@ -2,6 +2,7 @@ package onedrive
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/sercha-oss/sercha-core/internal/core/domain"
 	"github.com/sercha-oss/sercha-core/internal/core/ports/driven"
@@ -12,7 +13,8 @@ var _ driven.ConnectorBuilder = (*Builder)(nil)
 
 // Builder creates OneDrive connectors.
 type Builder struct {
-	config *Config
+	config    *Config
+	transport http.RoundTripper // optional; nil falls back to http.DefaultTransport in NewConnector
 }
 
 // NewBuilder creates a new OneDrive connector builder.
@@ -29,6 +31,15 @@ func NewBuilderWithConfig(config *Config) *Builder {
 	}
 }
 
+// WithHTTPTransport sets the HTTP transport used by connectors produced by
+// this builder. Pass connectors.SharedTransport("microsoft") at startup so
+// all OneDrive connectors share a single keepalive pool for graph.microsoft.com.
+// If not called, connectors fall back to http.DefaultTransport.
+func (b *Builder) WithHTTPTransport(t http.RoundTripper) *Builder {
+	b.transport = t
+	return b
+}
+
 // Type returns the provider type.
 func (b *Builder) Type() domain.ProviderType {
 	return domain.ProviderTypeOneDrive
@@ -38,7 +49,7 @@ func (b *Builder) Type() domain.ProviderType {
 // containerID format: OneDrive folder ID (e.g., "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K")
 // If containerID is empty, the connector indexes all accessible content.
 func (b *Builder) Build(ctx context.Context, tokenProvider driven.TokenProvider, containerID string) (driven.Connector, error) {
-	return NewConnector(tokenProvider, containerID, b.config), nil
+	return NewConnector(tokenProvider, containerID, b.config, b.transport), nil
 }
 
 // SupportsOAuth returns true - OneDrive supports OAuth2.
