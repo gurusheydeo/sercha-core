@@ -330,8 +330,14 @@ func main() {
 	factory.Register(notion.NewBuilder())
 	factory.RegisterOAuthHandler(domain.PlatformNotion, notion.NewOAuthHandler())
 
-	// Register Microsoft OneDrive connector
-	factory.Register(onedrive.NewBuilder())
+	// Register Microsoft OneDrive connector.
+	// SharedTransport("microsoft") returns a process-singleton *http.Transport
+	// tuned for Microsoft Graph (MaxIdleConnsPerHost=8, etc.). All OneDrive
+	// connector instances share this transport so TLS sessions and keepalive
+	// connections are pooled across content fetch, permission observer calls,
+	// and any other concurrent Microsoft Graph consumers.
+	microsoftTransport := connectors.SharedTransport("microsoft")
+	factory.Register(onedrive.NewBuilder().WithHTTPTransport(microsoftTransport))
 	factory.RegisterOAuthHandler(domain.PlatformMicrosoft, microsoft.NewOAuthHandler())
 
 	// Register LocalFS connector (for testing/development)

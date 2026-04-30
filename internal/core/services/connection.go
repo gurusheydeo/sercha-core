@@ -104,7 +104,23 @@ func (s *connectionService) Delete(ctx context.Context, id string) error {
 		return domain.ErrInUse
 	}
 
-	return s.connectionStore.Delete(ctx, id)
+	if err := s.connectionStore.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Evict the cached token provider for this connection so that stale token
+	// state does not linger after the connection row is gone. RemoveProvider is
+	// a concrete-only method on *auth.TokenProviderFactory; we reach it via a
+	// type assertion so the port interface (driven.TokenProviderFactory) stays
+	// unchanged.
+	type providerEvictor interface {
+		RemoveProvider(connectionID string)
+	}
+	if e, ok := s.tokenProviderFactory.(providerEvictor); ok {
+		e.RemoveProvider(id)
+	}
+
+	return nil
 }
 
 // ListByProvider returns connections for a specific provider type.

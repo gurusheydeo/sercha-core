@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 
 	"github.com/sercha-oss/sercha-core/internal/adapters/driven/connectors/microsoft"
@@ -28,7 +29,9 @@ type Connector struct {
 
 // NewConnector creates a OneDrive connector.
 // containerID can be empty to index all accessible content, or format "id:name" for a specific folder.
-func NewConnector(tokenProvider driven.TokenProvider, containerID string, config *Config) *Connector {
+// transport may be nil — microsoft.NewClient falls back to http.DefaultTransport. Production callers
+// should pass connectors.SharedTransport("microsoft") via the Builder so connections are pooled.
+func NewConnector(tokenProvider driven.TokenProvider, containerID string, config *Config, transport http.RoundTripper) *Connector {
 	if config == nil {
 		config = DefaultConfig()
 	}
@@ -54,7 +57,7 @@ func NewConnector(tokenProvider driven.TokenProvider, containerID string, config
 		tokenProvider: tokenProvider,
 		containerID:   folderID,
 		containerName: folderName,
-		client:        microsoft.NewClient(tokenProvider, clientConfig),
+		client:        microsoft.NewClient(tokenProvider, clientConfig, transport),
 		config:        config,
 	}
 }
