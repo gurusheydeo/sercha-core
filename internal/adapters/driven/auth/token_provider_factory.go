@@ -16,6 +16,17 @@ var _ driven.TokenProviderFactory = (*TokenProviderFactory)(nil)
 // TokenRefresherFunc is a function type for token refresh operations.
 type TokenRefresherFunc func(ctx context.Context, refreshToken string) (*driven.OAuthToken, error)
 
+// AppOnlyConfigFunc resolves the per-platform configuration needed to perform a
+// client_credentials token fetch for a given connection. The factory supplies
+// the connection so that wiring code can inspect fields such as TenantID or
+// AppCredentialsRef when constructing the credential. The function returns the
+// token endpoint URL, OAuth client ID, OAuth scope string, and a
+// ClientCredential (either a ClientSecretCredential or a
+// ClientCertificateCredential). Wiring code is responsible for choosing
+// between secret-based and certificate-based auth; the factory is agnostic
+// to the distinction.
+type AppOnlyConfigFunc func(conn *domain.Connection) (tokenEndpoint, clientID, scope string, cred ClientCredential, err error)
+
 // TokenProviderFactory creates TokenProviders from connection credentials.
 // It maintains a per-connection cache (providers) so that all callers sharing
 // the same connectionID get the exact same *OAuthTokenProvider instance.
@@ -32,6 +43,7 @@ type TokenRefresherFunc func(ctx context.Context, refreshToken string) (*driven.
 type TokenProviderFactory struct {
 	connectionStore driven.ConnectionStore
 	refreshers      map[domain.PlatformType]TokenRefresherFunc
+	appOnlyConfigs  map[domain.PlatformType]AppOnlyConfigFunc
 	providers       sync.Map // connectionID (string) -> driven.TokenProvider
 }
 
@@ -42,6 +54,7 @@ func NewTokenProviderFactory(
 	return &TokenProviderFactory{
 		connectionStore: connectionStore,
 		refreshers:      make(map[domain.PlatformType]TokenRefresherFunc),
+		appOnlyConfigs:  make(map[domain.PlatformType]AppOnlyConfigFunc),
 	}
 }
 
@@ -51,6 +64,17 @@ func (f *TokenProviderFactory) RegisterRefresher(
 	refresher TokenRefresherFunc,
 ) {
 	f.refreshers[platform] = refresher
+}
+
+// RegisterAppOnlyConfig registers an AppOnlyConfigFunc for a platform type.
+// The function is called by CreateFromConnection when the connection uses
+// AuthMethodAppOnly to resolve the token endpoint, scope, and credential for
+// that platform.
+func (f *TokenProviderFactory) RegisterAppOnlyConfig(
+	platform domain.PlatformType,
+	fn AppOnlyConfigFunc,
+) {
+	f.appOnlyConfigs[platform] = fn
 }
 
 // Create returns a TokenProvider for the given connectionID.
@@ -99,13 +123,21 @@ func (f *TokenProviderFactory) RemoveProvider(connectionID string) {
 // is NOT inserted into the per-connection cache — it is a fresh instance
 // scoped to the caller's use (e.g. OAuth callback flows that have the
 // connection in hand before it is registered in the cache).
+//
+// The provider type depends on the connection's AuthMethod:
+//   - AuthMethodOAuth2: returns an OAuthTokenProvider (delegated refresh flow).
+//   - AuthMethodAPIKey, AuthMethodPAT, AuthMethodServiceAccount: returns a
+//     StaticTokenProvider backed by the stored secret.
+//   - AuthMethodAppOnly: returns a ClientCredentialsTokenProvider. The token
+//     endpoint, scope, and credential are resolved via the AppOnlyConfigFunc
+//     registered for the connection's platform. Tokens are fetched on demand
+//     and cached in memory; they are never persisted back to the store.
 func (f *TokenProviderFactory) CreateFromConnection(ctx context.Context, conn *domain.Connection) (driven.TokenProvider, error) {
-	if conn.Secrets == nil {
-		return nil, fmt.Errorf("connection has no secrets: %s", conn.ID)
-	}
-
 	switch conn.AuthMethod {
 	case domain.AuthMethodOAuth2:
+		if conn.Secrets == nil {
+			return nil, fmt.Errorf("connection has no secrets: %s", conn.ID)
+		}
 		refresher := f.refreshers[domain.PlatformFor(conn.ProviderType)]
 		return NewOAuthTokenProvider(
 			conn.ID,
@@ -117,9 +149,15 @@ func (f *TokenProviderFactory) CreateFromConnection(ctx context.Context, conn *d
 		), nil
 
 	case domain.AuthMethodAPIKey:
+		if conn.Secrets == nil {
+			return nil, fmt.Errorf("connection has no secrets: %s", conn.ID)
+		}
 		return NewStaticTokenProvider(conn.Secrets.APIKey, domain.AuthMethodAPIKey), nil
 
 	case domain.AuthMethodPAT:
+		if conn.Secrets == nil {
+			return nil, fmt.Errorf("connection has no secrets: %s", conn.ID)
+		}
 		token := conn.Secrets.APIKey
 		if token == "" {
 			token = conn.Secrets.AccessToken
@@ -127,8 +165,23 @@ func (f *TokenProviderFactory) CreateFromConnection(ctx context.Context, conn *d
 		return NewStaticTokenProvider(token, domain.AuthMethodPAT), nil
 
 	case domain.AuthMethodServiceAccount:
+		if conn.Secrets == nil {
+			return nil, fmt.Errorf("connection has no secrets: %s", conn.ID)
+		}
 		// Service accounts typically use the service account JSON as-is
 		return NewStaticTokenProvider(conn.Secrets.ServiceAccountJSON, domain.AuthMethodServiceAccount), nil
+
+	case domain.AuthMethodAppOnly:
+		platform := domain.PlatformFor(conn.ProviderType)
+		configFn, ok := f.appOnlyConfigs[platform]
+		if !ok {
+			return nil, fmt.Errorf("no app-only config registered for platform %s", platform)
+		}
+		tokenEndpoint, clientID, scope, cred, err := configFn(conn)
+		if err != nil {
+			return nil, fmt.Errorf("resolve app-only config for %s: %w", platform, err)
+		}
+		return NewClientCredentialsTokenProvider(tokenEndpoint, clientID, scope, cred, nil), nil
 
 	default:
 		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedAuthMethod, conn.AuthMethod)

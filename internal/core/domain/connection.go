@@ -25,6 +25,18 @@ type Connection struct {
 	// Used for display and uniqueness constraint
 	AccountID string `json:"account_id,omitempty"`
 
+	// TenantID identifies the organization-level identity scope this connection
+	// is valid for (e.g. a directory tenant, customer ID, or org name depending
+	// on the provider). Only set for AuthMethodAppOnly connections; empty for
+	// delegated connections. The format is provider-defined.
+	TenantID string `json:"tenant_id,omitempty"`
+
+	// AppCredentialsRef is a reference into the secret store pointing to the
+	// long-lived application credential (client secret or certificate) used for
+	// AuthMethodAppOnly flows. It is an opaque identifier — the credential
+	// itself is never stored on the Connection record.
+	AppCredentialsRef string `json:"app_credentials_ref,omitempty"`
+
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
@@ -46,29 +58,33 @@ type ConnectionSecrets struct {
 
 // ConnectionSummary is a safe view without secrets for listing.
 type ConnectionSummary struct {
-	ID           string       `json:"id"`
-	Name         string       `json:"name"`
-	Platform     PlatformType `json:"platform"` // NEW
-	ProviderType ProviderType `json:"provider_type"`
-	AuthMethod   AuthMethod   `json:"auth_method"`
-	AccountID    string       `json:"account_id,omitempty"`
-	OAuthExpiry  *time.Time   `json:"oauth_expiry,omitempty"`
-	CreatedAt    time.Time    `json:"created_at"`
-	LastUsedAt   *time.Time   `json:"last_used_at,omitempty"`
+	ID                string       `json:"id"`
+	Name              string       `json:"name"`
+	Platform          PlatformType `json:"platform"` // NEW
+	ProviderType      ProviderType `json:"provider_type"`
+	AuthMethod        AuthMethod   `json:"auth_method"`
+	AccountID         string       `json:"account_id,omitempty"`
+	OAuthExpiry       *time.Time   `json:"oauth_expiry,omitempty"`
+	TenantID          string       `json:"tenant_id,omitempty"`
+	AppCredentialsRef string       `json:"app_credentials_ref,omitempty"`
+	CreatedAt         time.Time    `json:"created_at"`
+	LastUsedAt        *time.Time   `json:"last_used_at,omitempty"`
 }
 
 // ToSummary converts Connection to ConnectionSummary.
 func (c *Connection) ToSummary() *ConnectionSummary {
 	return &ConnectionSummary{
-		ID:           c.ID,
-		Name:         c.Name,
-		Platform:     c.Platform,
-		ProviderType: c.ProviderType,
-		AuthMethod:   c.AuthMethod,
-		AccountID:    c.AccountID,
-		OAuthExpiry:  c.OAuthExpiry,
-		CreatedAt:    c.CreatedAt,
-		LastUsedAt:   c.LastUsedAt,
+		ID:                c.ID,
+		Name:              c.Name,
+		Platform:          c.Platform,
+		ProviderType:      c.ProviderType,
+		AuthMethod:        c.AuthMethod,
+		AccountID:         c.AccountID,
+		OAuthExpiry:       c.OAuthExpiry,
+		TenantID:          c.TenantID,
+		AppCredentialsRef: c.AppCredentialsRef,
+		CreatedAt:         c.CreatedAt,
+		LastUsedAt:        c.LastUsedAt,
 	}
 }
 
@@ -95,8 +111,11 @@ func (c *Connection) HasSecrets() bool {
 }
 
 // GetAccessToken returns the access token if available.
-// For OAuth2: returns the access token
-// For API Key/PAT: returns the API key
+// For OAuth2: returns the access token.
+// For API Key/PAT: returns the API key.
+// For AppOnly: returns the in-memory cached access token if set, otherwise
+// empty string. The actual token fetch is performed by the TokenProvider;
+// this method is a convenience accessor for an already-cached token.
 func (c *Connection) GetAccessToken() string {
 	if c.Secrets == nil {
 		return ""
@@ -106,6 +125,9 @@ func (c *Connection) GetAccessToken() string {
 	}
 	if c.AuthMethod == AuthMethodAPIKey || c.AuthMethod == AuthMethodPAT {
 		return c.Secrets.APIKey
+	}
+	if c.AuthMethod == AuthMethodAppOnly {
+		return c.Secrets.AccessToken
 	}
 	return ""
 }

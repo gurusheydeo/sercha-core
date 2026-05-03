@@ -11,6 +11,18 @@ const (
 	AuthMethodBasic          AuthMethod = "basic"
 	AuthMethodServiceAccount AuthMethod = "service_account"
 	AuthMethodPAT            AuthMethod = "pat" // Personal Access Token
+
+	// AuthMethodAppOnly represents the client_credentials (app-only) OAuth 2.0
+	// flow. Unlike AuthMethodOAuth2, which is a delegated grant tied to a
+	// specific signed-in user, AuthMethodAppOnly uses a long-lived application
+	// credential (client secret or certificate) to obtain access tokens on behalf
+	// of the application itself — no user interaction required.
+	//
+	// The application credential is referenced by AppCredentialsRef on the
+	// Connection and is never stored directly in the Connection record. The
+	// identity scope (tenant, org, customer) the credential is valid for is
+	// captured in TenantID. The format of both fields is provider-defined.
+	AuthMethodAppOnly AuthMethod = "app_only"
 )
 
 // Credentials stores authentication credentials for a source connector

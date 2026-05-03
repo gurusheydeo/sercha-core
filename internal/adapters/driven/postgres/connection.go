@@ -44,8 +44,9 @@ func (s *ConnectionStore) Save(ctx context.Context, conn *domain.Connection) err
 		INSERT INTO connector_installations (
 			id, name, provider_type, platform, auth_method, secret_blob,
 			oauth_token_type, oauth_expiry, oauth_scopes, account_id,
+			tenant_id, app_credentials_ref,
 			created_at, updated_at, last_used_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			provider_type = EXCLUDED.provider_type,
@@ -56,6 +57,8 @@ func (s *ConnectionStore) Save(ctx context.Context, conn *domain.Connection) err
 			oauth_expiry = EXCLUDED.oauth_expiry,
 			oauth_scopes = EXCLUDED.oauth_scopes,
 			account_id = EXCLUDED.account_id,
+			tenant_id = EXCLUDED.tenant_id,
+			app_credentials_ref = EXCLUDED.app_credentials_ref,
 			updated_at = EXCLUDED.updated_at,
 			last_used_at = EXCLUDED.last_used_at
 	`
@@ -77,6 +80,8 @@ func (s *ConnectionStore) Save(ctx context.Context, conn *domain.Connection) err
 		nullTime(conn.OAuthExpiry),
 		pq.Array(conn.OAuthScopes),
 		nullString(conn.AccountID),
+		nullString(conn.TenantID),
+		nullString(conn.AppCredentialsRef),
 		conn.CreatedAt,
 		conn.UpdatedAt,
 		nullTime(conn.LastUsedAt),
@@ -93,6 +98,7 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 	query := `
 		SELECT id, name, provider_type, platform, auth_method, secret_blob,
 			   oauth_token_type, oauth_expiry, oauth_scopes, account_id,
+			   tenant_id, app_credentials_ref,
 			   created_at, updated_at, last_used_at
 		FROM connector_installations
 		WHERE id = $1
@@ -100,7 +106,7 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 
 	var conn domain.Connection
 	var secretBlob []byte
-	var oauthTokenType, accountID sql.NullString
+	var oauthTokenType, accountID, tenantID, appCredentialsRef sql.NullString
 	var oauthExpiry, lastUsedAt sql.NullTime
 	var oauthScopes []string
 
@@ -115,6 +121,8 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 		&oauthExpiry,
 		pq.Array(&oauthScopes),
 		&accountID,
+		&tenantID,
+		&appCredentialsRef,
 		&conn.CreatedAt,
 		&conn.UpdatedAt,
 		&lastUsedAt,
@@ -140,6 +148,8 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 	}
 	conn.OAuthScopes = oauthScopes
 	conn.AccountID = accountID.String
+	conn.TenantID = tenantID.String
+	conn.AppCredentialsRef = appCredentialsRef.String
 	if lastUsedAt.Valid {
 		conn.LastUsedAt = &lastUsedAt.Time
 	}
@@ -151,7 +161,7 @@ func (s *ConnectionStore) Get(ctx context.Context, id string) (*domain.Connectio
 func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary, error) {
 	query := `
 		SELECT id, name, provider_type, platform, auth_method, account_id,
-			   oauth_expiry, created_at, last_used_at
+			   tenant_id, app_credentials_ref, oauth_expiry, created_at, last_used_at
 		FROM connector_installations
 		ORDER BY created_at DESC
 	`
@@ -165,7 +175,7 @@ func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary
 	var summaries []*domain.ConnectionSummary
 	for rows.Next() {
 		var summary domain.ConnectionSummary
-		var accountID sql.NullString
+		var accountID, tenantID, appCredentialsRef sql.NullString
 		var oauthExpiry, lastUsedAt sql.NullTime
 
 		if err := rows.Scan(
@@ -175,6 +185,8 @@ func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary
 			&summary.Platform,
 			&summary.AuthMethod,
 			&accountID,
+			&tenantID,
+			&appCredentialsRef,
 			&oauthExpiry,
 			&summary.CreatedAt,
 			&lastUsedAt,
@@ -183,6 +195,8 @@ func (s *ConnectionStore) List(ctx context.Context) ([]*domain.ConnectionSummary
 		}
 
 		summary.AccountID = accountID.String
+		summary.TenantID = tenantID.String
+		summary.AppCredentialsRef = appCredentialsRef.String
 		if oauthExpiry.Valid {
 			summary.OAuthExpiry = &oauthExpiry.Time
 		}
@@ -224,7 +238,7 @@ func (s *ConnectionStore) Delete(ctx context.Context, id string) error {
 func (s *ConnectionStore) GetByPlatform(ctx context.Context, platform domain.PlatformType) ([]*domain.ConnectionSummary, error) {
 	query := `
 		SELECT id, name, provider_type, platform, auth_method, account_id,
-			   oauth_expiry, created_at, last_used_at
+			   tenant_id, app_credentials_ref, oauth_expiry, created_at, last_used_at
 		FROM connector_installations
 		WHERE platform = $1
 		ORDER BY created_at DESC
@@ -239,7 +253,7 @@ func (s *ConnectionStore) GetByPlatform(ctx context.Context, platform domain.Pla
 	var summaries []*domain.ConnectionSummary
 	for rows.Next() {
 		var summary domain.ConnectionSummary
-		var accountID sql.NullString
+		var accountID, tenantID, appCredentialsRef sql.NullString
 		var oauthExpiry, lastUsedAt sql.NullTime
 
 		if err := rows.Scan(
@@ -249,6 +263,8 @@ func (s *ConnectionStore) GetByPlatform(ctx context.Context, platform domain.Pla
 			&summary.Platform,
 			&summary.AuthMethod,
 			&accountID,
+			&tenantID,
+			&appCredentialsRef,
 			&oauthExpiry,
 			&summary.CreatedAt,
 			&lastUsedAt,
@@ -257,6 +273,8 @@ func (s *ConnectionStore) GetByPlatform(ctx context.Context, platform domain.Pla
 		}
 
 		summary.AccountID = accountID.String
+		summary.TenantID = tenantID.String
+		summary.AppCredentialsRef = appCredentialsRef.String
 		if oauthExpiry.Valid {
 			summary.OAuthExpiry = &oauthExpiry.Time
 		}
@@ -274,11 +292,77 @@ func (s *ConnectionStore) GetByPlatform(ctx context.Context, platform domain.Pla
 	return summaries, nil
 }
 
+// GetByTenantID retrieves an app-only connection by platform type and tenant ID.
+// Returns nil, nil when not found (not an error; the caller decides how to handle absence).
+func (s *ConnectionStore) GetByTenantID(ctx context.Context, platform domain.PlatformType, tenantID string) (*domain.Connection, error) {
+	query := `
+		SELECT id, name, provider_type, platform, auth_method, secret_blob,
+			   oauth_token_type, oauth_expiry, oauth_scopes, account_id,
+			   tenant_id, app_credentials_ref,
+			   created_at, updated_at, last_used_at
+		FROM connector_installations
+		WHERE platform = $1 AND tenant_id = $2
+	`
+
+	var conn domain.Connection
+	var secretBlob []byte
+	var oauthTokenType, accountID, tenantIDVal, appCredentialsRef sql.NullString
+	var oauthExpiry, lastUsedAt sql.NullTime
+	var oauthScopes []string
+
+	err := s.db.QueryRowContext(ctx, query, platform, tenantID).Scan(
+		&conn.ID,
+		&conn.Name,
+		&conn.ProviderType,
+		&conn.Platform,
+		&conn.AuthMethod,
+		&secretBlob,
+		&oauthTokenType,
+		&oauthExpiry,
+		pq.Array(&oauthScopes),
+		&accountID,
+		&tenantIDVal,
+		&appCredentialsRef,
+		&conn.CreatedAt,
+		&conn.UpdatedAt,
+		&lastUsedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil // Not found is not an error for this method
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get connection by tenant: %w", err)
+	}
+
+	// Decrypt secrets if present
+	if len(secretBlob) > 0 {
+		conn.Secrets = &domain.ConnectionSecrets{}
+		if err := s.encryptor.Decrypt(secretBlob, conn.Secrets); err != nil {
+			return nil, fmt.Errorf("decrypt secrets: %w", err)
+		}
+	}
+
+	conn.OAuthTokenType = oauthTokenType.String
+	if oauthExpiry.Valid {
+		conn.OAuthExpiry = &oauthExpiry.Time
+	}
+	conn.OAuthScopes = oauthScopes
+	conn.AccountID = accountID.String
+	conn.TenantID = tenantIDVal.String
+	conn.AppCredentialsRef = appCredentialsRef.String
+	if lastUsedAt.Valid {
+		conn.LastUsedAt = &lastUsedAt.Time
+	}
+
+	return &conn, nil
+}
+
 // GetByAccountID retrieves a connection by platform type and account ID.
 func (s *ConnectionStore) GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error) {
 	query := `
 		SELECT id, name, provider_type, platform, auth_method, secret_blob,
 			   oauth_token_type, oauth_expiry, oauth_scopes, account_id,
+			   tenant_id, app_credentials_ref,
 			   created_at, updated_at, last_used_at
 		FROM connector_installations
 		WHERE platform = $1 AND account_id = $2
@@ -286,7 +370,7 @@ func (s *ConnectionStore) GetByAccountID(ctx context.Context, platform domain.Pl
 
 	var conn domain.Connection
 	var secretBlob []byte
-	var oauthTokenType, accountIDVal sql.NullString
+	var oauthTokenType, accountIDVal, tenantID, appCredentialsRef sql.NullString
 	var oauthExpiry, lastUsedAt sql.NullTime
 	var oauthScopes []string
 
@@ -301,6 +385,8 @@ func (s *ConnectionStore) GetByAccountID(ctx context.Context, platform domain.Pl
 		&oauthExpiry,
 		pq.Array(&oauthScopes),
 		&accountIDVal,
+		&tenantID,
+		&appCredentialsRef,
 		&conn.CreatedAt,
 		&conn.UpdatedAt,
 		&lastUsedAt,
@@ -326,6 +412,8 @@ func (s *ConnectionStore) GetByAccountID(ctx context.Context, platform domain.Pl
 	}
 	conn.OAuthScopes = oauthScopes
 	conn.AccountID = accountIDVal.String
+	conn.TenantID = tenantID.String
+	conn.AppCredentialsRef = appCredentialsRef.String
 	if lastUsedAt.Valid {
 		conn.LastUsedAt = &lastUsedAt.Time
 	}

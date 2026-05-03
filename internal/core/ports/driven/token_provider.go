@@ -8,7 +8,10 @@ import (
 )
 
 // TokenProvider provides access tokens for API authentication.
-// It handles token storage, retrieval, and automatic refresh for OAuth.
+// Implementations cover multiple auth flows: OAuth (delegated, with automatic
+// token refresh), static credentials (API keys, PATs, basic auth), and
+// app-only flows (client_credentials grant, no per-user context, short-lived
+// tokens re-fetched on expiry rather than refreshed).
 type TokenProvider interface {
 	// GetAccessToken returns a valid access token.
 	// For OAuth, this automatically refreshes expired tokens.
@@ -31,11 +34,18 @@ type TokenProvider interface {
 type TokenProviderFactory interface {
 	// Create creates a TokenProvider for a connection.
 	// It looks up the connection by ID, decrypts credentials, and creates
-	// an appropriate TokenProvider based on the auth method.
+	// an appropriate TokenProvider based on the connection's AuthMethod.
+	// AuthMethodOAuth2 returns a provider that refreshes delegated tokens
+	// automatically. AuthMethodAppOnly returns a provider that fetches a
+	// short-lived token via the client_credentials grant and re-fetches on
+	// expiry without a refresh-token step. Other methods (APIKey, PAT, etc.)
+	// return a static provider.
 	Create(ctx context.Context, connectionID string) (TokenProvider, error)
 
 	// CreateFromConnection creates a TokenProvider from a connection directly.
-	// Use this when you already have the connection loaded.
+	// Use this when you already have the connection loaded. The returned
+	// provider type depends on the connection's AuthMethod, including
+	// AuthMethodAppOnly for app-only (client_credentials) connections.
 	CreateFromConnection(ctx context.Context, conn *domain.Connection) (TokenProvider, error)
 }
 

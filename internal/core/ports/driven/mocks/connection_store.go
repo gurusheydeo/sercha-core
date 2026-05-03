@@ -14,6 +14,7 @@ type MockConnectionStore struct {
 	connections map[string]*domain.Connection
 	byPlatform  map[domain.PlatformType]map[string]*domain.Connection
 	byAccount   map[string]*domain.Connection // key: platform:accountID
+	byTenant    map[string]*domain.Connection // key: platform:tenantID
 }
 
 // NewMockConnectionStore creates a new MockConnectionStore
@@ -22,6 +23,7 @@ func NewMockConnectionStore() *MockConnectionStore {
 		connections: make(map[string]*domain.Connection),
 		byPlatform:  make(map[domain.PlatformType]map[string]*domain.Connection),
 		byAccount:   make(map[string]*domain.Connection),
+		byTenant:    make(map[string]*domain.Connection),
 	}
 }
 
@@ -39,6 +41,11 @@ func (m *MockConnectionStore) Save(ctx context.Context, conn *domain.Connection)
 	if conn.AccountID != "" {
 		key := string(conn.Platform) + ":" + conn.AccountID
 		m.byAccount[key] = conn
+	}
+
+	if conn.TenantID != "" {
+		key := string(conn.Platform) + ":" + conn.TenantID
+		m.byTenant[key] = conn
 	}
 
 	return nil
@@ -83,6 +90,11 @@ func (m *MockConnectionStore) Delete(ctx context.Context, id string) error {
 		delete(m.byAccount, key)
 	}
 
+	if conn.TenantID != "" {
+		key := string(conn.Platform) + ":" + conn.TenantID
+		delete(m.byTenant, key)
+	}
+
 	return nil
 }
 
@@ -103,6 +115,18 @@ func (m *MockConnectionStore) GetByAccountID(ctx context.Context, platform domai
 
 	key := string(platform) + ":" + accountID
 	conn, ok := m.byAccount[key]
+	if !ok {
+		return nil, nil
+	}
+	return conn, nil
+}
+
+func (m *MockConnectionStore) GetByTenantID(ctx context.Context, platform domain.PlatformType, tenantID string) (*domain.Connection, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	key := string(platform) + ":" + tenantID
+	conn, ok := m.byTenant[key]
 	if !ok {
 		return nil, nil
 	}
@@ -148,6 +172,7 @@ func (m *MockConnectionStore) Reset() {
 	m.connections = make(map[string]*domain.Connection)
 	m.byPlatform = make(map[domain.PlatformType]map[string]*domain.Connection)
 	m.byAccount = make(map[string]*domain.Connection)
+	m.byTenant = make(map[string]*domain.Connection)
 }
 
 func (m *MockConnectionStore) Count() int {
