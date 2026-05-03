@@ -471,3 +471,32 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sercha_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO sercha_app;
+
+-- App-only (client_credentials) connection fields (Issue #120)
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'connector_installations' AND column_name = 'tenant_id'
+    ) THEN
+        ALTER TABLE connector_installations ADD COLUMN tenant_id TEXT;
+    END IF;
+END $$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'connector_installations' AND column_name = 'app_credentials_ref'
+    ) THEN
+        ALTER TABLE connector_installations ADD COLUMN app_credentials_ref TEXT;
+    END IF;
+END $$;
+-- +goose StatementEnd
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_connector_installations_platform_tenant_unique
+    ON connector_installations (platform, tenant_id)
+    WHERE tenant_id IS NOT NULL;

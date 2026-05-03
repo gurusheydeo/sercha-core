@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -49,6 +50,10 @@ func (m *mockConnectionStore) GetByPlatform(ctx context.Context, platform domain
 }
 
 func (m *mockConnectionStore) GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error) {
+	return nil, nil
+}
+
+func (m *mockConnectionStore) GetByTenantID(ctx context.Context, platform domain.PlatformType, tenantID string) (*domain.Connection, error) {
 	return nil, nil
 }
 
@@ -695,4 +700,154 @@ type countingGetStore struct {
 func (c *countingGetStore) Get(ctx context.Context, id string) (*domain.Connection, error) {
 	atomic.AddInt64(c.getCallCount, 1)
 	return c.mockConnectionStore.Get(ctx, id)
+}
+
+// TestCreateFromConnection_AppOnly_HappyPath tests that CreateFromConnection
+// returns a ClientCredentialsTokenProvider for an app-only connection.
+func TestCreateFromConnection_AppOnly_HappyPath(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	// Register app-only config for GitHub
+	configCalled := false
+	factory.RegisterAppOnlyConfig(domain.PlatformGitHub, func(conn *domain.Connection) (string, string, string, ClientCredential, error) {
+		configCalled = true
+		return "https://token.github.com", "client_id", "scope", &ClientSecretCredential{Secret: "secret"}, nil
+	})
+
+	conn := &domain.Connection{
+		ID:           "app-only-conn",
+		Platform:     domain.PlatformGitHub,
+		ProviderType: domain.ProviderTypeGitHub,
+		AuthMethod:   domain.AuthMethodAppOnly,
+		TenantID:     "github-org",
+		AppCredentialsRef: "secret/creds",
+	}
+
+	provider, err := factory.CreateFromConnection(context.Background(), conn)
+	if err != nil {
+		t.Fatalf("CreateFromConnection() error = %v", err)
+	}
+
+	if provider == nil {
+		t.Fatal("expected non-nil provider")
+	}
+
+	// Verify it's a ClientCredentialsTokenProvider
+	cctp, ok := provider.(*ClientCredentialsTokenProvider)
+	if !ok {
+		t.Errorf("expected *ClientCredentialsTokenProvider, got %T", provider)
+	}
+
+	if cctp.AuthMethod() != domain.AuthMethodAppOnly {
+		t.Errorf("expected AuthMethodAppOnly, got %v", cctp.AuthMethod())
+	}
+
+	if !configCalled {
+		t.Error("expected config func to be called")
+	}
+}
+
+// TestCreateFromConnection_AppOnly_Caching verifies that second call to
+// Create for the same app-only connection returns the same instance.
+func TestCreateFromConnection_AppOnly_Caching(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	factory.RegisterAppOnlyConfig(domain.PlatformGitHub, func(conn *domain.Connection) (string, string, string, ClientCredential, error) {
+		return "https://token.github.com", "client_id", "scope", &ClientSecretCredential{Secret: "secret"}, nil
+	})
+
+	conn := &domain.Connection{
+		ID:           "app-only-conn",
+		Platform:     domain.PlatformGitHub,
+		ProviderType: domain.ProviderTypeGitHub,
+		AuthMethod:   domain.AuthMethodAppOnly,
+		TenantID:     "github-org",
+	}
+	_ = connStore.Save(context.Background(), conn)
+
+	// First Create should load and cache
+	provider1, err := factory.Create(context.Background(), "app-only-conn")
+	if err != nil {
+		t.Fatalf("first Create() error = %v", err)
+	}
+
+	// Second Create should return cached instance
+	provider2, err := factory.Create(context.Background(), "app-only-conn")
+	if err != nil {
+		t.Fatalf("second Create() error = %v", err)
+	}
+
+	if provider1 != provider2 {
+		t.Error("expected same provider instance from cache")
+	}
+}
+
+// TestCreateFromConnection_AppOnly_NoConfigRegistered tests error when no
+// app-only config is registered for the platform.
+func TestCreateFromConnection_AppOnly_NoConfigRegistered(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	// Don't register any config for GitHub
+
+	conn := &domain.Connection{
+		ID:           "app-only-conn",
+		Platform:     domain.PlatformGitHub,
+		ProviderType: domain.ProviderTypeGitHub,
+		AuthMethod:   domain.AuthMethodAppOnly,
+		TenantID:     "github-org",
+	}
+
+	_, err := factory.CreateFromConnection(context.Background(), conn)
+	if err == nil {
+		t.Fatal("expected error when no app-only config registered")
+	}
+	if err.Error() != "no app-only config registered for platform github" {
+		t.Errorf("expected specific error message, got: %v", err)
+	}
+}
+
+// TestCreateFromConnection_AppOnly_ConfigReturnsError tests error propagation
+// from the app-only config function.
+func TestCreateFromConnection_AppOnly_ConfigReturnsError(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	factory.RegisterAppOnlyConfig(domain.PlatformGitHub, func(conn *domain.Connection) (string, string, string, ClientCredential, error) {
+		return "", "", "", nil, fmt.Errorf("config resolution failed")
+	})
+
+	conn := &domain.Connection{
+		ID:           "app-only-conn",
+		Platform:     domain.PlatformGitHub,
+		ProviderType: domain.ProviderTypeGitHub,
+		AuthMethod:   domain.AuthMethodAppOnly,
+	}
+
+	_, err := factory.CreateFromConnection(context.Background(), conn)
+	if err == nil {
+		t.Fatal("expected error from config func")
+	}
+	if err.Error() != "resolve app-only config for github: config resolution failed" {
+		t.Errorf("expected error mentioning config failure, got: %v", err)
+	}
+}
+
+// TestRegisterAppOnlyConfig tests the RegisterAppOnlyConfig method.
+func TestRegisterAppOnlyConfig(t *testing.T) {
+	connStore := newMockConnectionStore()
+	factory := NewTokenProviderFactory(connStore)
+
+	configFunc := func(conn *domain.Connection) (string, string, string, ClientCredential, error) {
+		return "https://token.example.com", "client_id", "scope", nil, nil
+	}
+
+	factory.RegisterAppOnlyConfig(domain.PlatformGitHub, configFunc)
+
+	// Verify it was registered by checking factory state
+	if factory.appOnlyConfigs[domain.PlatformGitHub] == nil {
+		t.Error("expected app-only config to be registered")
+	}
 }

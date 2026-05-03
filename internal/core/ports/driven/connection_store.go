@@ -31,6 +31,10 @@ type ConnectionStore interface {
 	// Returns nil if not found.
 	GetByAccountID(ctx context.Context, platform domain.PlatformType, accountID string) (*domain.Connection, error)
 
+	// GetByTenantID retrieves an app-only connection by platform type and tenant ID.
+	// Returns nil if not found.
+	GetByTenantID(ctx context.Context, platform domain.PlatformType, tenantID string) (*domain.Connection, error)
+
 	// UpdateSecrets updates the encrypted secrets and OAuth metadata.
 	// Used after token refresh.
 	UpdateSecrets(ctx context.Context, id string, secrets *domain.ConnectionSecrets, expiry *time.Time) error

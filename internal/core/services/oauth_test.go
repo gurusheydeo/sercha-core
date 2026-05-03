@@ -115,6 +115,10 @@ func (m *mockConnectionStore) GetByAccountID(ctx context.Context, platform domai
 	return conn, nil
 }
 
+func (m *mockConnectionStore) GetByTenantID(ctx context.Context, platform domain.PlatformType, tenantID string) (*domain.Connection, error) {
+	return nil, nil
+}
+
 func (m *mockConnectionStore) UpdateSecrets(ctx context.Context, id string, secrets *domain.ConnectionSecrets, expiry *time.Time) error {
 	conn, ok := m.connections[id]
 	if !ok {
