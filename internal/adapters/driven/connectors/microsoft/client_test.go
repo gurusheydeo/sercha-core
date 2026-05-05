@@ -1058,3 +1058,65 @@ func TestDoRequest_ImmediateSuccess_NoRetries(t *testing.T) {
 		t.Errorf("requestCount = %d, want 1 (no retries on immediate success)", requestCount)
 	}
 }
+
+// TestWaitForRateLimit_ReturnsAfterTokenAvailable verifies that WaitForRateLimit
+// returns without error when the per-client token bucket has capacity. The second
+// call may block briefly (one token per 500ms at 2 RPS) but must still succeed.
+func TestWaitForRateLimit_ReturnsAfterTokenAvailable(t *testing.T) {
+	cfg := &ClientConfig{
+		BaseURL:        "https://graph.microsoft.com/v1.0",
+		RateLimitRPS:   2.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     0,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	ctx := context.Background()
+
+	// First call: bucket starts full, returns immediately.
+	if err := client.WaitForRateLimit(ctx); err != nil {
+		t.Fatalf("WaitForRateLimit() first call error = %v", err)
+	}
+
+	// Second call: must also complete without error (may block up to ~500ms).
+	if err := client.WaitForRateLimit(ctx); err != nil {
+		t.Fatalf("WaitForRateLimit() second call error = %v", err)
+	}
+}
+
+// TestWaitForRateLimit_RespectsCancelledContext verifies that WaitForRateLimit
+// returns context.Canceled immediately when the supplied context is already
+// cancelled, rather than blocking until a token becomes available.
+func TestWaitForRateLimit_RespectsCancelledContext(t *testing.T) {
+	// Near-zero refill rate so the bucket stays empty after the first drain.
+	cfg := &ClientConfig{
+		BaseURL:        "https://graph.microsoft.com/v1.0",
+		RateLimitRPS:   0.001,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     0,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	// Drain the initial token using a live context.
+	if err := client.WaitForRateLimit(context.Background()); err != nil {
+		t.Fatalf("drain call error = %v", err)
+	}
+
+	// Pass an already-cancelled context — must not block.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.WaitForRateLimit(ctx)
+	}()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("WaitForRateLimit() with cancelled context = %v, want context.Canceled", err)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("WaitForRateLimit() did not return promptly on cancelled context")
+	}
+}

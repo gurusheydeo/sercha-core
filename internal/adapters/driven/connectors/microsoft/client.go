@@ -194,6 +194,15 @@ func (c *Client) Do(ctx context.Context, method, path string, body, result any) 
 	return c.doRequest(ctx, method, path, body, result)
 }
 
+// WaitForRateLimit blocks until the next request is permitted by the
+// per-client rate budget (or ctx is cancelled). Use this from external
+// callers that issue HTTP requests to Microsoft endpoints outside of
+// doRequest (e.g. file-content downloads via pre-signed CDN URLs) so
+// every Microsoft-bound request shares the same token bucket.
+func (c *Client) WaitForRateLimit(ctx context.Context) error {
+	return c.rateLimiter.Wait(ctx)
+}
+
 // Compile-time assertion that *Client satisfies the RESTClient port.
 var _ driven.RESTClient = (*Client)(nil)
 
