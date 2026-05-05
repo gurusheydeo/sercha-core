@@ -33,7 +33,7 @@ type OpenAILLM struct {
 type OpenAILLMOption func(*OpenAILLM)
 
 // WithLLMTPMLimit sets the tokens-per-minute budget for the LLM client's
-// rate-limiter bucket. The default is read from OPENAI_TPM_LIMIT (200000 if
+// rate-limiter bucket. The default is read from OPENAI_TPM_LIMIT (1000000 if
 // unset).
 func WithLLMTPMLimit(tpm int64) OpenAILLMOption {
 	return func(l *OpenAILLM) {
@@ -73,7 +73,7 @@ func WithLLMTransportSleep(fn func(ctx context.Context, d time.Duration) error) 
 // The constructor reads three env vars to configure the rate-limiter and retry
 // behaviour:
 //
-//   - OPENAI_TPM_LIMIT (default 200000): initial token-per-minute budget
+//   - OPENAI_TPM_LIMIT (default 1000000): initial token-per-minute budget
 //   - OPENAI_MAX_RETRIES (default 5): max retry attempts on 429/5xx
 //   - OPENAI_MAX_RETRY_ELAPSED_SEC (default 60): max total seconds spent retrying
 //
@@ -95,7 +95,7 @@ func NewOpenAILLM(apiKey, model, baseURL string, opts ...OpenAILLMOption) (drive
 		baseURL = "https://api.openai.com/v1"
 	}
 
-	tpm := int64(getEnvIntAI("OPENAI_TPM_LIMIT", 200000))
+	tpm := int64(getEnvIntAI("OPENAI_TPM_LIMIT", 1000000))
 	maxRetries := getEnvIntAI("OPENAI_MAX_RETRIES", 5)
 	maxElapsedSec := getEnvIntAI("OPENAI_MAX_RETRY_ELAPSED_SEC", 60)
 
