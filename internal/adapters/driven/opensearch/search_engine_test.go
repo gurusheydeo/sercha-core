@@ -1916,10 +1916,47 @@ func TestSearchEngine_SearchByQueryDSL_WrapsCallerQueryInBoolEnvelope(t *testing
 	if len(filter) != 1 {
 		t.Fatalf("want 1 filter clause (source_id), got %d", len(filter))
 	}
+}
 
-	// Highlight config still attached so consumers get fragment data.
-	if _, ok := capturedBody["highlight"]; !ok {
-		t.Error("highlight config missing from envelope")
+// TestSearchDocuments_NoHighlightClause asserts that the request body sent to
+// OpenSearch contains no top-level "highlight" key. A highlight clause causes
+// OpenSearch to 400 all shards when any matched document's content field
+// exceeds index.highlight.max_analyzed_offset.
+func TestSearchDocuments_NoHighlightClause(t *testing.T) {
+	var capturedBody map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "_search") {
+			if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+				t.Errorf("decode request body: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"hits": map[string]any{
+					"total": map[string]any{"value": 0},
+					"hits":  []map[string]any{},
+				},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	engine, err := NewSearchEngine(Config{URL: ts.URL, IndexName: "sercha_chunks", Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatalf("NewSearchEngine: %v", err)
+	}
+
+	_, _, err = engine.SearchDocuments(context.Background(), "kubernetes", domain.SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("SearchDocuments: %v", err)
+	}
+
+	if capturedBody == nil {
+		t.Fatal("no search request body captured")
+	}
+	if _, ok := capturedBody["highlight"]; ok {
+		t.Error("request body must not contain a highlight clause")
 	}
 }
 

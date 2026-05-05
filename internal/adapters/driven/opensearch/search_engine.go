@@ -133,7 +133,7 @@ func (s *SearchEngine) SearchDocuments(ctx context.Context, query string, opts d
 }
 
 // SearchByQueryDSL runs an arbitrary OpenSearch query body inside the
-// adapter's standard bool envelope (filters, highlights, pagination).
+// adapter's standard bool envelope (filters, pagination).
 // Caller owns the inner query shape — useful when the standard match-based
 // retrieval doesn't fit (e.g. function_score, custom rescoring, or any
 // other query DSL the existing methods don't expose).
@@ -162,9 +162,9 @@ func (s *SearchEngine) SearchByQueryDSL(ctx context.Context, queryBody json.RawM
 
 // buildBoolEnvelope wraps a slice of must clauses in the standard bool
 // query envelope: must + optional should (boost terms, exact-title boost)
-// + optional filter (source/document filters), plus pagination and
-// highlights. Shared by SearchDocuments and SearchByQueryDSL so they
-// apply filters and highlights identically.
+// + optional filter (source/document filters), plus pagination.
+// Shared by SearchDocuments and SearchByQueryDSL so they apply filters
+// identically.
 //
 // rawQuery is the user's original query string used to build the
 // exact-title-match should clause. SearchByQueryDSL passes "" because
@@ -232,22 +232,14 @@ func (s *SearchEngine) buildBoolEnvelope(mustClauses []any, opts domain.SearchOp
 		boolQuery["filter"] = filterClauses
 	}
 
+	// Highlight is omitted from the request body. OpenSearch 400s the entire
+	// search (all shards fail) if any matched document's content field exceeds
+	// index.highlight.max_analyzed_offset. Snippet extraction is done
+	// client-side from the returned Content field instead.
 	return map[string]any{
 		"query": map[string]any{"bool": boolQuery},
 		"from":  opts.Offset,
 		"size":  opts.Limit,
-		"highlight": map[string]any{
-			"fields": map[string]any{
-				"content": map[string]any{
-					"fragment_size":       200,
-					"number_of_fragments": 3,
-				},
-				"title": map[string]any{
-					"fragment_size":       200,
-					"number_of_fragments": 1,
-				},
-			},
-		},
 	}
 }
 
