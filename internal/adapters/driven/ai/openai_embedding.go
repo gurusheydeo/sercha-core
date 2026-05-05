@@ -34,7 +34,7 @@ type OpenAIEmbeddingOption func(*OpenAIEmbedding)
 
 // WithEmbeddingTPMLimit sets the tokens-per-minute budget for the embedding
 // client's rate-limiter bucket. The default is read from OPENAI_TPM_LIMIT
-// (200000 if unset).
+// (1000000 if unset).
 func WithEmbeddingTPMLimit(tpm int64) OpenAIEmbeddingOption {
 	return func(e *OpenAIEmbedding) {
 		refillPerSec := float64(tpm) / 60.0
@@ -81,7 +81,7 @@ var openAIModelDimensions = map[string]int{
 // The constructor reads three env vars to configure the rate-limiter and retry
 // behaviour:
 //
-//   - OPENAI_TPM_LIMIT (default 200000): initial token-per-minute budget
+//   - OPENAI_TPM_LIMIT (default 1000000): initial token-per-minute budget
 //   - OPENAI_MAX_RETRIES (default 5): max retry attempts on 429/5xx
 //   - OPENAI_MAX_RETRY_ELAPSED_SEC (default 60): max total seconds spent retrying
 //
@@ -109,7 +109,7 @@ func NewOpenAIEmbedding(apiKey, model, baseURL string, opts ...OpenAIEmbeddingOp
 		dimensions = 1536
 	}
 
-	tpm := int64(getEnvIntAI("OPENAI_TPM_LIMIT", 200000))
+	tpm := int64(getEnvIntAI("OPENAI_TPM_LIMIT", 1000000))
 	maxRetries := getEnvIntAI("OPENAI_MAX_RETRIES", 5)
 	maxElapsedSec := getEnvIntAI("OPENAI_MAX_RETRY_ELAPSED_SEC", 60)
 

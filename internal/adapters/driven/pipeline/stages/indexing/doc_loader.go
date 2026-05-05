@@ -117,7 +117,7 @@ func (s *DocLoaderStage) Process(ctx context.Context, input any) (any, error) {
 		return nil, &StageError{Stage: s.descriptor.ID, Message: "failed to index document", Err: err}
 	}
 
-	slog.Info("indexed document for BM25 search",
+	slog.Debug("indexed document for BM25 search",
 		"document_id", indexInput.DocumentID,
 		"content_length", len(body))
 

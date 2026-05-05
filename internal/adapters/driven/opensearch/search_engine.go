@@ -133,7 +133,7 @@ func (s *SearchEngine) SearchDocuments(ctx context.Context, query string, opts d
 }
 
 // SearchByQueryDSL runs an arbitrary OpenSearch query body inside the
-// adapter's standard bool envelope (filters, highlights, pagination).
+// adapter's standard bool envelope (filters, pagination).
 // Caller owns the inner query shape — useful when the standard match-based
 // retrieval doesn't fit (e.g. function_score, custom rescoring, or any
 // other query DSL the existing methods don't expose).
@@ -162,9 +162,9 @@ func (s *SearchEngine) SearchByQueryDSL(ctx context.Context, queryBody json.RawM
 
 // buildBoolEnvelope wraps a slice of must clauses in the standard bool
 // query envelope: must + optional should (boost terms, exact-title boost)
-// + optional filter (source/document filters), plus pagination and
-// highlights. Shared by SearchDocuments and SearchByQueryDSL so they
-// apply filters and highlights identically.
+// + optional filter (source/document filters), plus pagination.
+// Shared by SearchDocuments and SearchByQueryDSL so they apply filters
+// identically.
 //
 // rawQuery is the user's original query string used to build the
 // exact-title-match should clause. SearchByQueryDSL passes "" because
@@ -232,22 +232,14 @@ func (s *SearchEngine) buildBoolEnvelope(mustClauses []any, opts domain.SearchOp
 		boolQuery["filter"] = filterClauses
 	}
 
+	// Highlight is omitted from the request body. OpenSearch 400s the entire
+	// search (all shards fail) if any matched document's content field exceeds
+	// index.highlight.max_analyzed_offset. Snippet extraction is done
+	// client-side from the returned Content field instead.
 	return map[string]any{
 		"query": map[string]any{"bool": boolQuery},
 		"from":  opts.Offset,
 		"size":  opts.Limit,
-		"highlight": map[string]any{
-			"fields": map[string]any{
-				"content": map[string]any{
-					"fragment_size":       200,
-					"number_of_fragments": 3,
-				},
-				"title": map[string]any{
-					"fragment_size":       200,
-					"number_of_fragments": 1,
-				},
-			},
-		},
 	}
 }
 
@@ -392,24 +384,14 @@ func (s *SearchEngine) Count(ctx context.Context) (int64, error) {
 	return int64(resp.Count), nil
 }
 
-// ensureIndex creates the index with the correct mapping if it doesn't exist.
+// ensureIndex creates the index with the correct mapping if it does not already exist.
 // The index stores full documents (not chunks) for BM25 text search.
+//
+// The create call is made optimistically without a prior existence check.
+// OpenSearch returns 400 with type resource_already_exists_exception when concurrent
+// callers race on first creation; that response is treated as success so all callers
+// proceed normally. All other 400+ responses are propagated as errors.
 func (s *SearchEngine) ensureIndex(ctx context.Context) error {
-	// Check if index exists using low-level Do to avoid v4 client treating 404 as error.
-	// IndicesExists returns 200 if the index exists, 404 if it doesn't — both are valid.
-	existsResp, err := s.client.Client.Do(ctx, opensearchapi.IndicesExistsReq{
-		Indices: []string{s.indexName},
-	}, nil)
-	if err != nil {
-		return fmt.Errorf("failed to check index existence: %w", err)
-	}
-	defer func() { _ = existsResp.Body.Close() }()
-
-	// Index exists (200)
-	if existsResp.StatusCode == 200 {
-		return nil
-	}
-
 	// Create index with document-level mapping.
 	//
 	// The english analyser lowercases, strips english stop words, and applies
@@ -538,23 +520,46 @@ func (s *SearchEngine) ensureIndex(ctx context.Context) error {
 		return fmt.Errorf("failed to marshal mapping: %w", err)
 	}
 
-	createReq := opensearchapi.IndicesCreateReq{
+	// Use low-level Do so that a 400 response arrives as a response object (not an
+	// error) and we can parse the body to distinguish resource_already_exists from
+	// genuine failures.
+	createResp, err := s.client.Client.Do(ctx, opensearchapi.IndicesCreateReq{
 		Index: s.indexName,
 		Body:  bytes.NewReader(mappingBody),
-	}
-
-	createResp, err := s.client.Indices.Create(ctx, createReq)
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create index: %w", err)
 	}
+	defer func() { _ = createResp.Body.Close() }()
 
-	// Check for HTTP errors
-	if httpResp := createResp.Inspect().Response; httpResp != nil && httpResp.StatusCode != 200 {
-		body, _ := io.ReadAll(httpResp.Body)
-		return fmt.Errorf("failed to create index with status %d: %s", httpResp.StatusCode, string(body))
+	if createResp.StatusCode == 200 || createResp.StatusCode == 201 {
+		return nil
 	}
 
-	return nil
+	// Read body once for both the already-exists check and the error message.
+	respBody, _ := io.ReadAll(createResp.Body)
+
+	if isAlreadyExistsError(respBody) {
+		// OpenSearch returns 400 with resource_already_exists_exception when
+		// concurrent callers race on first creation; treat it as success.
+		return nil
+	}
+
+	return fmt.Errorf("failed to create index: status: %d, body: %s", createResp.StatusCode, string(respBody))
+}
+
+// isAlreadyExistsError reports whether an OpenSearch error response body indicates
+// that the index already exists (resource_already_exists_exception).
+func isAlreadyExistsError(body []byte) bool {
+	var errResp struct {
+		Error struct {
+			Type string `json:"type"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &errResp); err != nil {
+		return false
+	}
+	return errResp.Error.Type == "resource_already_exists_exception"
 }
 
 // deleteByQuery is a helper for deleting documents matching a query.

@@ -876,3 +876,247 @@ func TestGetDelta_NonResyncErrorPassesThrough(t *testing.T) {
 		t.Errorf("401 should not map to ErrResyncRequired, got %v", err)
 	}
 }
+
+// TestDoRequest_AllRetriesReturn429_SurfacesExhaustion verifies that when every
+// attempt returns 429, the caller gets a clear "retries exhausted" error rather
+// than the misleading "file already closed" that results from ReadAll on a body
+// closed inside the retry loop.
+func TestDoRequest_AllRetriesReturn429_SurfacesExhaustion(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	_, err := client.GetMe(context.Background())
+	if err == nil {
+		t.Fatal("GetMe() expected error, got nil")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "retries exhausted") {
+		t.Errorf("error = %q, want to contain 'retries exhausted'", msg)
+	}
+	if !strings.Contains(msg, "status 429") {
+		t.Errorf("error = %q, want to contain 'status 429'", msg)
+	}
+	if !strings.Contains(msg, "after 3 attempts") {
+		t.Errorf("error = %q, want to contain 'after 3 attempts'", msg)
+	}
+	if strings.Contains(msg, "file already closed") {
+		t.Errorf("error = %q, must not contain 'file already closed'", msg)
+	}
+}
+
+// TestDoRequest_AllRetriesReturn503_SurfacesExhaustion verifies the same
+// exhaustion-error path for sustained 5xx responses.
+func TestDoRequest_AllRetriesReturn503_SurfacesExhaustion(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	_, err := client.GetMe(context.Background())
+	if err == nil {
+		t.Fatal("GetMe() expected error, got nil")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "retries exhausted") {
+		t.Errorf("error = %q, want to contain 'retries exhausted'", msg)
+	}
+	if !strings.Contains(msg, "status 503") {
+		t.Errorf("error = %q, want to contain 'status 503'", msg)
+	}
+	if !strings.Contains(msg, "after 3 attempts") {
+		t.Errorf("error = %q, want to contain 'after 3 attempts'", msg)
+	}
+	if strings.Contains(msg, "file already closed") {
+		t.Errorf("error = %q, must not contain 'file already closed'", msg)
+	}
+}
+
+// TestDoRequest_429ThenSuccess_ReturnsSuccess verifies that a single 429
+// followed by a 200 succeeds and the response body is correctly unmarshalled.
+func TestDoRequest_429ThenSuccess_ReturnsSuccess(t *testing.T) {
+	attemptCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(User{
+			ID:          "user-abc",
+			DisplayName: "Retry User",
+		})
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	user, err := client.GetMe(context.Background())
+	if err != nil {
+		t.Fatalf("GetMe() error = %v (should succeed after 429 retry)", err)
+	}
+	if user.ID != "user-abc" {
+		t.Errorf("user.ID = %q, want user-abc", user.ID)
+	}
+	if attemptCount != 2 {
+		t.Errorf("attemptCount = %d, want 2", attemptCount)
+	}
+}
+
+// TestDoRequest_500ThenSuccess_ReturnsSuccess verifies that a single 500
+// followed by a 200 succeeds and the response body is correctly unmarshalled.
+func TestDoRequest_500ThenSuccess_ReturnsSuccess(t *testing.T) {
+	attemptCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(User{
+			ID:          "user-xyz",
+			DisplayName: "Retry User 500",
+		})
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	user, err := client.GetMe(context.Background())
+	if err != nil {
+		t.Fatalf("GetMe() error = %v (should succeed after 500 retry)", err)
+	}
+	if user.ID != "user-xyz" {
+		t.Errorf("user.ID = %q, want user-xyz", user.ID)
+	}
+	if attemptCount != 2 {
+		t.Errorf("attemptCount = %d, want 2", attemptCount)
+	}
+}
+
+// TestDoRequest_ImmediateSuccess_NoRetries verifies that a 200 response on the
+// first attempt succeeds with exactly one request.
+func TestDoRequest_ImmediateSuccess_NoRetries(t *testing.T) {
+	requestCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(User{
+			ID:          "user-immediate",
+			DisplayName: "Immediate User",
+		})
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	user, err := client.GetMe(context.Background())
+	if err != nil {
+		t.Fatalf("GetMe() error = %v", err)
+	}
+	if user.ID != "user-immediate" {
+		t.Errorf("user.ID = %q, want user-immediate", user.ID)
+	}
+	if requestCount != 1 {
+		t.Errorf("requestCount = %d, want 1 (no retries on immediate success)", requestCount)
+	}
+}
+
+// TestWaitForRateLimit_ReturnsAfterTokenAvailable verifies that WaitForRateLimit
+// returns without error when the per-client token bucket has capacity. The second
+// call may block briefly (one token per 500ms at 2 RPS) but must still succeed.
+func TestWaitForRateLimit_ReturnsAfterTokenAvailable(t *testing.T) {
+	cfg := &ClientConfig{
+		BaseURL:        "https://graph.microsoft.com/v1.0",
+		RateLimitRPS:   2.0,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     0,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	ctx := context.Background()
+
+	// First call: bucket starts full, returns immediately.
+	if err := client.WaitForRateLimit(ctx); err != nil {
+		t.Fatalf("WaitForRateLimit() first call error = %v", err)
+	}
+
+	// Second call: must also complete without error (may block up to ~500ms).
+	if err := client.WaitForRateLimit(ctx); err != nil {
+		t.Fatalf("WaitForRateLimit() second call error = %v", err)
+	}
+}
+
+// TestWaitForRateLimit_RespectsCancelledContext verifies that WaitForRateLimit
+// returns context.Canceled immediately when the supplied context is already
+// cancelled, rather than blocking until a token becomes available.
+func TestWaitForRateLimit_RespectsCancelledContext(t *testing.T) {
+	// Near-zero refill rate so the bucket stays empty after the first drain.
+	cfg := &ClientConfig{
+		BaseURL:        "https://graph.microsoft.com/v1.0",
+		RateLimitRPS:   0.001,
+		RequestTimeout: 30 * time.Second,
+		MaxRetries:     0,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	// Drain the initial token using a live context.
+	if err := client.WaitForRateLimit(context.Background()); err != nil {
+		t.Fatalf("drain call error = %v", err)
+	}
+
+	// Pass an already-cancelled context — must not block.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.WaitForRateLimit(ctx)
+	}()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("WaitForRateLimit() with cancelled context = %v, want context.Canceled", err)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("WaitForRateLimit() did not return promptly on cancelled context")
+	}
+}
