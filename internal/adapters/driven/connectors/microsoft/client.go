@@ -213,7 +213,10 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		bodyReader = strings.NewReader(string(bodyJSON))
 	}
 
-	var resp *http.Response
+	var (
+		resp              *http.Response
+		lastRetriedStatus int
+	)
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
 		// Wait for rate limiter
 		if err := c.rateLimiter.Wait(ctx); err != nil {
@@ -247,6 +250,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 
 		// Check for rate limiting
 		if resp.StatusCode == http.StatusTooManyRequests {
+			lastRetriedStatus = resp.StatusCode
 			_ = resp.Body.Close()
 			// Exponential backoff
 			backoff := time.Duration(attempt+1) * time.Second
@@ -264,6 +268,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		}
 
 		// Server error - retry with exponential backoff
+		lastRetriedStatus = resp.StatusCode
 		_ = resp.Body.Close()
 		backoff := time.Duration(attempt+1) * time.Second
 		select {
@@ -271,6 +276,14 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			return ctx.Err()
 		case <-time.After(backoff):
 		}
+	}
+
+	// If the loop exhausted its retry budget on 429/5xx, resp.Body was closed
+	// inside the loop. Return a typed exhaustion error rather than reading from
+	// a closed body, which would surface the misleading "file already closed" error.
+	if resp == nil || (lastRetriedStatus != 0 && (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500)) {
+		return fmt.Errorf("microsoft graph %s %s: retries exhausted (last status %d after %d attempts)",
+			method, path, lastRetriedStatus, c.maxRetries+1)
 	}
 
 	defer func() { _ = resp.Body.Close() }()
