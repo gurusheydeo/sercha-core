@@ -611,8 +611,8 @@ func TestClient_DefaultConfig(t *testing.T) {
 		t.Errorf("RequestTimeout = %v, want 30s", cfg.RequestTimeout)
 	}
 
-	if cfg.MaxRetries != 3 {
-		t.Errorf("MaxRetries = %d, want 3", cfg.MaxRetries)
+	if cfg.MaxRetries != 5 {
+		t.Errorf("MaxRetries = %d, want 5", cfg.MaxRetries)
 	}
 }
 
@@ -1118,5 +1118,207 @@ func TestWaitForRateLimit_RespectsCancelledContext(t *testing.T) {
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("WaitForRateLimit() did not return promptly on cancelled context")
+	}
+}
+
+// TestParseRetryAfter checks the parseRetryAfter helper against a range of
+// header values covering the delta-seconds form (RFC 7231), whitespace
+// tolerance, edge cases, and HTTP-date form (not supported; must return 0).
+func TestParseRetryAfter(t *testing.T) {
+	cases := []struct {
+		header string
+		want   time.Duration
+	}{
+		{"", 0},
+		{"5", 5 * time.Second},
+		{" 10 ", 10 * time.Second},
+		{"-3", 0},
+		{"abc", 0},
+		{"Wed, 21 Oct 2015 07:28:00 GMT", 0},
+	}
+	for _, tc := range cases {
+		got := parseRetryAfter(tc.header)
+		if got != tc.want {
+			t.Errorf("parseRetryAfter(%q) = %v, want %v", tc.header, got, tc.want)
+		}
+	}
+}
+
+// TestDoRequest_HonorsRetryAfterOn429 verifies that when the server returns
+// 429 with Retry-After: 2, the client waits at least 2 seconds before
+// retrying and ultimately returns the subsequent 200 response.
+func TestDoRequest_HonorsRetryAfterOn429(t *testing.T) {
+	attemptCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount == 1 {
+			w.Header().Set("Retry-After", "2")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	start := time.Now()
+	var result struct{ OK bool `json:"ok"` }
+	err := client.doRequest(context.Background(), "GET", "/me", nil, &result)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("doRequest() error = %v", err)
+	}
+	if !result.OK {
+		t.Errorf("result.OK = false, want true")
+	}
+	if elapsed < 1900*time.Millisecond {
+		t.Errorf("elapsed = %v, want >= 1.9s (Retry-After: 2 not honoured)", elapsed)
+	}
+	if attemptCount != 2 {
+		t.Errorf("attemptCount = %d, want 2", attemptCount)
+	}
+}
+
+// TestDoRequest_HonorsRetryAfterOn503 verifies that the Retry-After header is
+// honoured on 5xx responses, not only on 429.
+func TestDoRequest_HonorsRetryAfterOn503(t *testing.T) {
+	attemptCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount == 1 {
+			w.Header().Set("Retry-After", "2")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	start := time.Now()
+	var result struct{ OK bool `json:"ok"` }
+	err := client.doRequest(context.Background(), "GET", "/me", nil, &result)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("doRequest() error = %v", err)
+	}
+	if !result.OK {
+		t.Errorf("result.OK = false, want true")
+	}
+	if elapsed < 1900*time.Millisecond {
+		t.Errorf("elapsed = %v, want >= 1.9s (Retry-After: 2 not honoured on 503)", elapsed)
+	}
+	if attemptCount != 2 {
+		t.Errorf("attemptCount = %d, want 2", attemptCount)
+	}
+}
+
+// TestDoRequest_429BackoffFloorsAtOneSecond verifies that when a 429 response
+// carries Retry-After: 0 (or a value that parses to zero), the backoff is
+// floored at 1 second rather than hammering the server immediately.
+// With Retry-After: 0, parseRetryAfter returns 0, the fallback is
+// (attempt+1)*1s = 1s at attempt 0, and the floor leaves it at 1s.
+func TestDoRequest_429BackoffFloorsAtOneSecond(t *testing.T) {
+	attemptCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount == 1 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	start := time.Now()
+	var result struct{ OK bool `json:"ok"` }
+	err := client.doRequest(context.Background(), "GET", "/me", nil, &result)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("doRequest() error = %v", err)
+	}
+	if elapsed < 900*time.Millisecond {
+		t.Errorf("elapsed = %v, want >= 0.9s (floor at 1s not applied for 429)", elapsed)
+	}
+	if attemptCount != 2 {
+		t.Errorf("attemptCount = %d, want 2", attemptCount)
+	}
+}
+
+// TestDoRequest_FallsBackToExponentialBackoffWhenNoRetryAfter verifies that
+// when no Retry-After header is present on a 429, the client falls back to
+// the (attempt+1)*1s exponential schedule. At attempt 0 the backoff is 1s.
+func TestDoRequest_FallsBackToExponentialBackoffWhenNoRetryAfter(t *testing.T) {
+	attemptCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	cfg := &ClientConfig{
+		BaseURL:        ts.URL + "/v1.0",
+		RateLimitRPS:   100.0,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     2,
+	}
+	client := NewClient(&stubTokenProvider{}, cfg, nil)
+
+	start := time.Now()
+	var result struct{ OK bool `json:"ok"` }
+	err := client.doRequest(context.Background(), "GET", "/me", nil, &result)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("doRequest() error = %v", err)
+	}
+	if elapsed < 900*time.Millisecond {
+		t.Errorf("elapsed = %v, want >= 0.9s (exponential backoff of 1s at attempt 0)", elapsed)
+	}
+	if attemptCount != 2 {
+		t.Errorf("attemptCount = %d, want 2", attemptCount)
+	}
+}
+
+// TestDefaultClientConfig_MaxRetriesIs5 is a sanity check that the default
+// retry budget has been raised to 5.
+func TestDefaultClientConfig_MaxRetriesIs5(t *testing.T) {
+	cfg := DefaultClientConfig()
+	if cfg.MaxRetries != 5 {
+		t.Errorf("DefaultClientConfig().MaxRetries = %d, want 5", cfg.MaxRetries)
 	}
 }

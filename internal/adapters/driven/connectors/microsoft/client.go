@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,7 +54,11 @@ func DefaultClientConfig() *ClientConfig {
 		BaseURL:        "https://graph.microsoft.com/v1.0",
 		RateLimitRPS:   10.0, // Conservative rate limit
 		RequestTimeout: 30 * time.Second,
-		MaxRetries:     3,
+		// Graph throttle windows are typically ~30 s. With 3 retries the cumulative
+		// wait (1+2+3 = 6 s) was too short on sustained 429 bursts. With 5 retries
+		// the wait reaches 1+2+3+4+5 = 15 s, plus any Retry-After header honour,
+		// which comfortably spans a standard throttle window.
+		MaxRetries: 5,
 	}
 }
 
@@ -259,10 +264,15 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 
 		// Check for rate limiting
 		if resp.StatusCode == http.StatusTooManyRequests {
+			backoff := parseRetryAfter(resp.Header.Get("Retry-After"))
+			if backoff <= 0 {
+				backoff = time.Duration(attempt+1) * time.Second
+			}
+			if backoff < time.Second {
+				backoff = time.Second
+			}
 			lastRetriedStatus = resp.StatusCode
 			_ = resp.Body.Close()
-			// Exponential backoff
-			backoff := time.Duration(attempt+1) * time.Second
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -276,10 +286,13 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			break
 		}
 
-		// Server error - retry with exponential backoff
+		// Server error - retry with backoff, honouring Retry-After if present.
+		backoff := parseRetryAfter(resp.Header.Get("Retry-After"))
+		if backoff <= 0 {
+			backoff = time.Duration(attempt+1) * time.Second
+		}
 		lastRetriedStatus = resp.StatusCode
 		_ = resp.Body.Close()
-		backoff := time.Duration(attempt+1) * time.Second
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -330,4 +343,18 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 	}
 
 	return nil
+}
+
+// parseRetryAfter returns the duration to wait as advised by the HTTP
+// Retry-After header. Empty header or unparsable values return 0. Only
+// the delta-seconds form is supported per RFC 7231; HTTP-date form
+// returns 0 (callers fall back to their own backoff strategy).
+func parseRetryAfter(headerValue string) time.Duration {
+	if headerValue == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(strings.TrimSpace(headerValue)); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	return 0
 }
