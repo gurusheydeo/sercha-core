@@ -308,6 +308,23 @@ func (o *SyncOrchestrator) readStatsErrors(stats *domain.SyncStats) int {
 	return stats.Errors
 }
 
+// detachedCtx wraps a parent context so observers see request-scoped
+// values (e.g. trace ids, scope refs threaded by the per-container
+// loop) without inheriting the parent's cancellation or deadline.
+// Used by dispatchIngestObserver: the observer goroutine outlives the
+// triggering request, but observers still need the values the request
+// installed.
+//
+// Done/Err report "no cancellation"; Deadline reports "no deadline."
+// Layering context.WithTimeout on top of this gives the observer its
+// own bounded lifetime without propagating the request's cancellation.
+type detachedCtx struct{ parent context.Context }
+
+func (c detachedCtx) Deadline() (time.Time, bool)        { return time.Time{}, false }
+func (c detachedCtx) Done() <-chan struct{}              { return nil }
+func (c detachedCtx) Err() error                         { return nil }
+func (c detachedCtx) Value(key any) any                  { return c.parent.Value(key) }
+
 // dispatchIngestObserver fires the configured DocumentIngestObserver in
 // a bounded goroutine pool. The dispatch path:
 //
@@ -321,14 +338,20 @@ func (o *SyncOrchestrator) readStatsErrors(stats *domain.SyncStats) int {
 // observer.OnDocumentIngested is now invoked from N concurrent goroutines
 // (one per in-flight document), so observer implementations must be
 // goroutine-safe — see the port godoc.
-func (o *SyncOrchestrator) dispatchIngestObserver(source *domain.Source, doc *domain.Document) {
+func (o *SyncOrchestrator) dispatchIngestObserver(parent context.Context, source *domain.Source, doc *domain.Document) {
 	o.observerSem <- struct{}{}
 	o.observerWG.Add(1)
 	go func() {
 		defer o.observerWG.Done()
 		defer func() { <-o.observerSem }()
 
-		ctx, cancel := context.WithTimeout(context.Background(), o.observerTimeout)
+		// Detach from the parent's cancellation so a finished request
+		// can't kill an in-flight observer, but keep the parent's
+		// values (request-scoped state observers depend on, e.g. the
+		// per-container scope ref threaded by the sync loop). Then
+		// layer the observer's own timeout on top so a stuck observer
+		// can still be reaped.
+		ctx, cancel := context.WithTimeout(detachedCtx{parent: parent}, o.observerTimeout)
 		defer cancel()
 
 		obsStart := time.Now()
@@ -1317,7 +1340,7 @@ func (o *SyncOrchestrator) processWithPipeline(
 	// processing path doesn't block on observer latency. Failures are logged
 	// and ignored — observer health must not affect ingest correctness.
 	if o.documentIngestObserver != nil {
-		o.dispatchIngestObserver(source, doc)
+		o.dispatchIngestObserver(ctx, source, doc)
 	}
 
 	// Update stats
