@@ -96,6 +96,14 @@ type SyncOrchestrator struct {
 	// pre-pass tries to recover per sync run. Bounds tail latency for
 	// sources with a large failure backlog.
 	retryBatchPerSync int
+
+	// scopeResolvers is the optional per-provider container-list
+	// override registry. Nil for deployments that only use the static
+	// source.Containers path.
+	scopeResolvers driven.ScopeContainerResolverRegistry
+	// scopeEncoding decodes resolver-emitted container IDs into the
+	// ScopeRef the orchestrator threads onto context. Optional.
+	scopeEncoding ScopeContainerEncoding
 }
 
 // SyncOrchestratorConfig holds dependencies for SyncOrchestrator.
@@ -138,6 +146,41 @@ type SyncOrchestratorConfig struct {
 	// RetryBatchPerSync caps how many previously-failing docs the
 	// pre-pass attempts per sync run. Defaults to 50 when zero.
 	RetryBatchPerSync int
+
+	// ScopeContainerResolvers is an optional registry of per-provider
+	// hooks that override the default source.Containers iteration. When
+	// a resolver returns a non-nil container slice, the orchestrator
+	// iterates that list instead of source.Containers. When the registry
+	// is nil or no resolver is registered for a source's ProviderType,
+	// the standard source.Containers path runs unchanged.
+	//
+	// The orchestrator threads ScopeRef onto each per-container context
+	// (ScopeRef.Type / ExternalID derived from the resolved IDs by the
+	// resolver-supplied encoding) so observers can attribute documents
+	// to the originating scope.
+	ScopeContainerResolvers driven.ScopeContainerResolverRegistry
+
+	// ScopeContainerEncoding decodes a containerID returned by a
+	// resolver back into a ScopeRef for ctx threading. Optional —
+	// when nil the orchestrator threads only the bare containerID
+	// as ScopeRef.ExternalID with empty Type, which is fine for
+	// observers that don't care about the type axis.
+	//
+	// Implementations are pure — no I/O, no dependencies on the
+	// resolver itself. Decoupled to keep the resolver focused on
+	// "which containers" and the encoder on "what does each ID mean".
+	ScopeContainerEncoding ScopeContainerEncoding
+}
+
+// ScopeContainerEncoding is the inverse of however the resolver chose
+// to encode scopes into container IDs. The orchestrator calls Decode
+// once per container iteration to rebuild a ScopeRef for the context.
+//
+// Connectors are free to use any encoding they like — colon-delimited,
+// JSON, base64 — as long as the encoder supplied to the orchestrator
+// matches.
+type ScopeContainerEncoding interface {
+	Decode(containerID string) ScopeRef
 }
 
 // NewSyncOrchestrator creates a new sync orchestrator.
@@ -218,6 +261,8 @@ func NewSyncOrchestrator(cfg SyncOrchestratorConfig) *SyncOrchestrator {
 		failedDocStore:         cfg.FailedDocStore,
 		failedDocBackoff:       failedBackoff,
 		retryBatchPerSync:      retryBatch,
+		scopeResolvers:         cfg.ScopeContainerResolvers,
+		scopeEncoding:          cfg.ScopeContainerEncoding,
 	}
 }
 
@@ -263,6 +308,23 @@ func (o *SyncOrchestrator) readStatsErrors(stats *domain.SyncStats) int {
 	return stats.Errors
 }
 
+// detachedCtx wraps a parent context so observers see request-scoped
+// values (e.g. trace ids, scope refs threaded by the per-container
+// loop) without inheriting the parent's cancellation or deadline.
+// Used by dispatchIngestObserver: the observer goroutine outlives the
+// triggering request, but observers still need the values the request
+// installed.
+//
+// Done/Err report "no cancellation"; Deadline reports "no deadline."
+// Layering context.WithTimeout on top of this gives the observer its
+// own bounded lifetime without propagating the request's cancellation.
+type detachedCtx struct{ parent context.Context }
+
+func (c detachedCtx) Deadline() (time.Time, bool)        { return time.Time{}, false }
+func (c detachedCtx) Done() <-chan struct{}              { return nil }
+func (c detachedCtx) Err() error                         { return nil }
+func (c detachedCtx) Value(key any) any                  { return c.parent.Value(key) }
+
 // dispatchIngestObserver fires the configured DocumentIngestObserver in
 // a bounded goroutine pool. The dispatch path:
 //
@@ -276,14 +338,20 @@ func (o *SyncOrchestrator) readStatsErrors(stats *domain.SyncStats) int {
 // observer.OnDocumentIngested is now invoked from N concurrent goroutines
 // (one per in-flight document), so observer implementations must be
 // goroutine-safe — see the port godoc.
-func (o *SyncOrchestrator) dispatchIngestObserver(source *domain.Source, doc *domain.Document) {
+func (o *SyncOrchestrator) dispatchIngestObserver(parent context.Context, source *domain.Source, doc *domain.Document) {
 	o.observerSem <- struct{}{}
 	o.observerWG.Add(1)
 	go func() {
 		defer o.observerWG.Done()
 		defer func() { <-o.observerSem }()
 
-		ctx, cancel := context.WithTimeout(context.Background(), o.observerTimeout)
+		// Detach from the parent's cancellation so a finished request
+		// can't kill an in-flight observer, but keep the parent's
+		// values (request-scoped state observers depend on, e.g. the
+		// per-container scope ref threaded by the sync loop). Then
+		// layer the observer's own timeout on top so a stuck observer
+		// can still be reaped.
+		ctx, cancel := context.WithTimeout(detachedCtx{parent: parent}, o.observerTimeout)
 		defer cancel()
 
 		obsStart := time.Now()
@@ -512,17 +580,36 @@ func (o *SyncOrchestrator) SyncSource(ctx context.Context, sourceID string) (*do
 		o.logger.Warn("failed to update sync state to running", "error", err)
 	}
 
-	// Determine containers to sync
-	// If selected containers are specified, sync each one
-	// Otherwise, sync with empty containerID (provider indexes all content)
+	// Determine containers to sync.
+	//
+	// Resolution precedence:
+	//   1. A registered ScopeContainerResolver for this source's
+	//      ProviderType — overrides everything when it returns a
+	//      non-nil slice (including the empty-non-nil "no work this
+	//      run" signal). A non-nil error short-circuits the run.
+	//   2. source.Containers as set on the row.
+	//   3. Empty containerID — provider indexes all accessible content.
 	var containerIDs []string
-	if len(source.Containers) > 0 {
-		containerIDs = make([]string, len(source.Containers))
-		for i, c := range source.Containers {
-			containerIDs[i] = c.ID
+	if o.scopeResolvers != nil {
+		if resolver, ok := o.scopeResolvers.Get(source.ProviderType); ok {
+			resolved, rerr := resolver.ResolveContainers(ctx, source)
+			if rerr != nil {
+				return o.failSync(ctx, sourceID, startTime, fmt.Errorf("scope resolver: %w", rerr))
+			}
+			if resolved != nil {
+				containerIDs = resolved
+			}
 		}
-	} else {
-		containerIDs = []string{""} // Empty string means sync all accessible content
+	}
+	if containerIDs == nil {
+		if len(source.Containers) > 0 {
+			containerIDs = make([]string, len(source.Containers))
+			for i, c := range source.Containers {
+				containerIDs[i] = c.ID
+			}
+		} else {
+			containerIDs = []string{""} // Empty string means sync all accessible content
+		}
 	}
 
 	// Aggregate stats across all containers
@@ -562,7 +649,17 @@ func (o *SyncOrchestrator) SyncSource(ctx context.Context, sourceID string) (*do
 
 	// Step 3: Sync each container
 	for _, containerID := range containerIDs {
-		containerStats, cursor, err := o.syncContainer(ctx, source, syncState, containerID, processedExternalIDs)
+		// Thread the ScopeRef for this container onto the context so
+		// observers (audit, attribution, etc.) can attribute work back
+		// to the originating scope. Encoding is connector-specific —
+		// the orchestrator just delegates to the supplied encoder. When
+		// no encoder is supplied or the resolver wasn't used the
+		// ScopeRef is the zero value and observers see IsZero=true.
+		containerCtx := ctx
+		if o.scopeEncoding != nil {
+			containerCtx = WithScopeRef(ctx, o.scopeEncoding.Decode(containerID))
+		}
+		containerStats, cursor, err := o.syncContainer(containerCtx, source, syncState, containerID, processedExternalIDs)
 		if err != nil {
 			o.logger.Error("container sync failed",
 				"source_id", sourceID,
@@ -1243,7 +1340,7 @@ func (o *SyncOrchestrator) processWithPipeline(
 	// processing path doesn't block on observer latency. Failures are logged
 	// and ignored — observer health must not affect ingest correctness.
 	if o.documentIngestObserver != nil {
-		o.dispatchIngestObserver(source, doc)
+		o.dispatchIngestObserver(ctx, source, doc)
 	}
 
 	// Update stats

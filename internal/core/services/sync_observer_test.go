@@ -836,3 +836,102 @@ func TestWaitForObservers_CtxCancel(t *testing.T) {
 		t.Errorf("expected context.Canceled, got %v", err)
 	}
 }
+
+// observerSeenScope captures the ScopeRef the observer sees on each
+// invocation. Used to assert the dispatch path forwards request-scoped
+// values through to the (otherwise detached) observer goroutine.
+type observerSeenScope struct {
+	mu   sync.Mutex
+	seen []ScopeRef
+}
+
+func (o *observerSeenScope) OnDocumentIngested(ctx context.Context, _ *domain.Source, _ *domain.Document) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.seen = append(o.seen, ScopeRefFromContext(ctx))
+	return nil
+}
+
+// TestDispatchIngestObserver_PreservesContextValues verifies that
+// values installed on the parent context (e.g. ScopeRef threaded by
+// the per-container loop) reach the observer even though the observer
+// runs in a goroutine with its own timeout. Regression guard for the
+// detachedCtx fix: previously the dispatcher built its observer
+// context from context.Background(), which silently discarded all
+// request-scoped values and broke any observer that depended on them.
+func TestDispatchIngestObserver_PreservesContextValues(t *testing.T) {
+	obs := &observerSeenScope{}
+	orchestrator, _, _, _, _ :=
+		createTestSyncOrchestratorWithObserver(t, obs, nil)
+
+	want := ScopeRef{Type: "site", ExternalID: "site-eng"}
+	parent := WithScopeRef(context.Background(), want)
+	orchestrator.dispatchIngestObserver(parent, &domain.Source{ID: "src"}, &domain.Document{ID: "doc"})
+
+	if err := orchestrator.WaitForObservers(context.Background()); err != nil {
+		t.Fatalf("WaitForObservers: %v", err)
+	}
+
+	if len(obs.seen) != 1 {
+		t.Fatalf("observer invocations = %d, want 1", len(obs.seen))
+	}
+	if obs.seen[0] != want {
+		t.Errorf("observer ScopeRef = %+v, want %+v", obs.seen[0], want)
+	}
+}
+
+// TestDispatchIngestObserver_DetachesParentCancellation verifies the
+// other half of the detachedCtx contract: cancelling the parent
+// context must NOT cancel the observer mid-flight. Observers are
+// expected to outlive the request that triggered them.
+func TestDispatchIngestObserver_DetachesParentCancellation(t *testing.T) {
+	released := make(chan struct{})
+	defer close(released)
+	finished := make(chan error, 1)
+
+	obs := observerOnIngest(func(ctx context.Context, _ *domain.Source, _ *domain.Document) error {
+		// Parent is cancelled before this fires; we should still see no
+		// cancellation on our context (only the observerTimeout, which
+		// is left at its default 30s in this test).
+		select {
+		case <-ctx.Done():
+			finished <- ctx.Err()
+		case <-released:
+			finished <- nil
+		}
+		return nil
+	})
+
+	orchestrator, _, _, _, _ :=
+		createTestSyncOrchestratorWithObserver(t, obs, nil)
+
+	parent, cancelParent := context.WithCancel(context.Background())
+	orchestrator.dispatchIngestObserver(parent, &domain.Source{ID: "src"}, &domain.Document{ID: "doc"})
+
+	cancelParent()
+	// Give the observer goroutine a moment to react if the cancellation
+	// were going to propagate — it shouldn't.
+	time.Sleep(50 * time.Millisecond)
+	released <- struct{}{}
+
+	select {
+	case err := <-finished:
+		if err != nil {
+			t.Errorf("observer ctx was cancelled despite detachedCtx wrapper: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("observer did not finish")
+	}
+
+	if err := orchestrator.WaitForObservers(context.Background()); err != nil {
+		t.Fatalf("WaitForObservers: %v", err)
+	}
+}
+
+// observerOnIngest wraps a function as a DocumentIngestObserver for
+// inline test callbacks.
+type observerOnIngest func(ctx context.Context, source *domain.Source, doc *domain.Document) error
+
+func (f observerOnIngest) OnDocumentIngested(ctx context.Context, source *domain.Source, doc *domain.Document) error {
+	return f(ctx, source, doc)
+}

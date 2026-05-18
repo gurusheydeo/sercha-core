@@ -22,6 +22,14 @@ import (
 // code can branch on it cleanly without string-matching.
 var ErrResyncRequired = errors.New("microsoft graph: delta cursor invalidated, full resync required")
 
+// ErrNotFound signals that Graph returned HTTP 404 for the requested
+// resource. Callers can branch on this (via errors.Is) to implement
+// per-endpoint fallback logic — e.g. retry against a sibling endpoint
+// for objects that exist in a different collection (directoryRoles vs
+// groups). Wrapping preserves the original status + Graph error code in
+// the message for diagnostics.
+var ErrNotFound = errors.New("microsoft graph: not found")
+
 // Client provides Microsoft Graph API operations.
 type Client struct {
 	tokenProvider       driven.TokenProvider
@@ -451,11 +459,19 @@ func (c *Client) doRequestWithHeaders(ctx context.Context, method, path string, 
 			if resp.StatusCode == http.StatusGone {
 				return fmt.Errorf("%w: %s - %s", ErrResyncRequired, errResp.Error.Code, errResp.Error.Message)
 			}
+			// 404 wraps ErrNotFound so callers can branch on the typed
+			// sentinel without inspecting status codes or messages.
+			if resp.StatusCode == http.StatusNotFound {
+				return fmt.Errorf("%w: %s - %s", ErrNotFound, errResp.Error.Code, errResp.Error.Message)
+			}
 			return fmt.Errorf("microsoft graph API error %d: %s - %s",
 				resp.StatusCode, errResp.Error.Code, errResp.Error.Message)
 		}
 		if resp.StatusCode == http.StatusGone {
 			return fmt.Errorf("%w: %s", ErrResyncRequired, string(respBody))
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return fmt.Errorf("%w: %s", ErrNotFound, string(respBody))
 		}
 		return fmt.Errorf("microsoft graph API error %d: %s", resp.StatusCode, string(respBody))
 	}
